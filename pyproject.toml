@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "threema-chat-export"
+version = "0.1.0"
+description = "Export Threema iOS CoreData SQLite chats to PDFs with media extraction"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+authors = [{name = "Your Org"}]
+dependencies = [
+  "reportlab>=4.0.0",
+  "emoji>=2.0.0",
+]
+
+
+[project.scripts]
+threema-export = "threema_export.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
