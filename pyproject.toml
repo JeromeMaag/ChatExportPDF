@@ -9,15 +9,19 @@ description = "Export Threema iOS CoreData SQLite chats to PDFs with media extra
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
-authors = [{name = "Your Org"}]
+authors = [{name = "Jerome Maag" }]
 dependencies = [
   "reportlab>=4.0.0",
   "emoji>=2.0.0",
+  "tzdata>=2023.3; platform_system=='Windows'",
 ]
 
 
 [project.scripts]
 threema-export = "threema_export.cli:main"
+
+[project.urls]
+Repository = "https://github.com/JeromeMaag/Threema-Chat-Export"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
