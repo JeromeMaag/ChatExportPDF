@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import quote
+
 
 from importlib.metadata import PackageNotFoundError, version as pkg_version
 from reportlab.lib import colors
@@ -296,7 +298,8 @@ def build_pdfs_for_conversation(
         return Paragraph(txt.replace("\n", "<br/>"), style)
 
     def link(label: str, rel_path: str, style=normal):
-        href = f"file:{rel_path}"
+        rel_path = rel_path.replace("\\", "/")
+        href = quote(rel_path)
         return Paragraph(
             f'{esc_xml(label)}: <a href="{href}">{esc_xml(rel_path)}</a>', style
         )
