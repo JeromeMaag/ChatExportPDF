@@ -31,19 +31,19 @@ In `--out-dir` you will get:
 
 ## Console commands
 
-### Install
+### Install (Repo Directory)
 ```bash
 python -m pip install -e .
 ```
 
 ### Run (recommended: with external folder)
 ```bash
-threema-export --db-path "./ThreemaData.sqlite" --out-dir "./export" --external-folder "./EXTERNAL"
+python -m threema_export --db-path "./ThreemaData.sqlite" --out-dir "./export" --external-folder "./EXTERNAL"
 ```
 
 ### Run (without external folder — attachments may be incomplete)
 ```bash
-threema-export --db-path "./ThreemaData.sqlite" --out-dir "./export"
+python -m threema_export --db-path "./ThreemaData.sqlite" --out-dir "./export"
 ```
 
 ## Command line options
