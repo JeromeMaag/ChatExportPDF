@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
+from importlib.metadata import PackageNotFoundError, version as pkg_version
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
@@ -24,6 +25,15 @@ from ..util import blob_prefix_hex, relpath_for_link
 from .styles import build_styles
 
 log = logging.getLogger(__name__)
+
+
+def exporter_version() -> str:
+    try:
+        return pkg_version("threema-chat-export")
+    except PackageNotFoundError:
+        return "dev"
+    except Exception:
+        return "unknown"
 
 
 def conv_type(conv: Conversation) -> str:
@@ -500,6 +510,12 @@ def build_pdfs_for_conversation(
 
         # Cover
         story.append(p(f"CHAT EXPORT — {esc_xml(chat_title)}", h1))
+        story.append(
+            p(
+                f"<font color='#666666'>Exporter: threema-chat-export v{esc_xml(exporter_version())}</font>",
+                normal,
+            )
+        )
         story.append(Spacer(1, 6))
         story.append(compact_meta_table(is_tech=is_tech))
         story.append(Spacer(1, 10))
