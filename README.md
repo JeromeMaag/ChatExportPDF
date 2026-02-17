@@ -84,3 +84,9 @@ python -m threema_export --db-path "./ThreemaData.sqlite" --out-dir "./export"
 - `--log-file PATH` (default: not set)  
   Write logs additionally to a file.
 
+## Future Ideas:
+- HTML Export
+- Statistics - Page with stats per Chat (Messages, Media etc)
+- Forensic Report
+- Database Overview 
+
