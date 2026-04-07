@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 import hashlib
 import os
 import re
-from typing import Any, Optional
+from typing import Optional
 
 
 def ensure_dir(path: str) -> None:
@@ -47,7 +48,8 @@ def relpath_for_link(target_abs: str, pdf_abs: str) -> str:
     pdf_dir = os.path.dirname(os.path.abspath(pdf_abs))
     try:
         return os.path.relpath(os.path.abspath(target_abs), start=pdf_dir).replace(
-            "\\", "/"
+            "\\",
+            "/",
         )
     except Exception:
         return os.path.abspath(target_abs).replace("\\", "/")

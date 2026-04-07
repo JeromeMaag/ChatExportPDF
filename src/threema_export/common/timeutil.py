@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass
+
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -10,11 +10,13 @@ except Exception:
 
 COCOA_OFFSET = 978307200
 
+
 class TimeMode:
     UNIX_S = "unix_s"
     UNIX_MS = "unix_ms"
     COCOA_S = "cocoa_s"
     COCOA_MS = "cocoa_ms"
+
 
 def _to_timestamp_seconds(val: Any, mode: str) -> Optional[float]:
     if val is None:
@@ -36,6 +38,7 @@ def _to_timestamp_seconds(val: Any, mode: str) -> Optional[float]:
     if mode == TimeMode.COCOA_MS:
         return (x / 1000.0) + COCOA_OFFSET
     return None
+
 
 def auto_detect_time_mode(conn) -> str:
     cur = conn.cursor()
@@ -59,8 +62,13 @@ def auto_detect_time_mode(conn) -> str:
         return s
 
     modes = [TimeMode.UNIX_S, TimeMode.UNIX_MS, TimeMode.COCOA_S, TimeMode.COCOA_MS]
-    best, best_score = sorted([(m, score(m)) for m in modes], key=lambda x: x[1], reverse=True)[0]
+    best, best_score = sorted(
+        [(m, score(m)) for m in modes],
+        key=lambda x: x[1],
+        reverse=True,
+    )[0]
     return best if best_score > 0 else TimeMode.COCOA_S
+
 
 def format_dt(val: Any, mode: str, tz_name: str, null_if_early_year: int = 2005) -> str:
     ts = _to_timestamp_seconds(val, mode)
@@ -74,6 +82,7 @@ def format_dt(val: Any, mode: str, tz_name: str, null_if_early_year: int = 2005)
         return dt.strftime("%Y-%m-%d %H:%M:%S %Z")
     except Exception:
         return "NULL"
+
 
 def dt_compact(val: Any, mode: str, tz_name: str) -> str:
     ts = _to_timestamp_seconds(val, mode)

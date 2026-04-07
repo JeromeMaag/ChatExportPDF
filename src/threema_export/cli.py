@@ -3,16 +3,25 @@ import argparse
 import logging
 from typing import Optional
 
+from .common.logging_setup import setup_logging
 from .config import ExportConfig
-from .logging_setup import setup_logging
-from .pipeline import export_all_conversations
+from .orchestrator import export_all_conversations
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description="Export Threema iOS CoreData SQLite chats to PDFs with media extraction."
+        description="Export chat data from supported apps to PDFs with media extraction."
     )
-    p.add_argument("--db-path", required=True, help="Path to ThreemaData.sqlite")
+    p.add_argument(
+        "--source",
+        default="threema",
+        help="Source app / importer to use (currently supported: threema)",
+    )
+    p.add_argument(
+        "--db-path",
+        required=True,
+        help="Path to ThreemaData.sqlite (for source=threema)",
+    )
     p.add_argument("--out-dir", required=True, help="Output directory")
     p.add_argument(
         "--external-folder",
@@ -68,6 +77,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         log.info("Will skip media blobs larger than %d bytes", args.max_media_bytes)
 
     cfg = ExportConfig(
+        source_app=args.source,
         db_path=args.db_path,
         out_dir=args.out_dir,
         external_folder=args.external_folder,
@@ -86,8 +96,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         log.exception("Export failed: %s", e)
         return 1
 
-    print("Detected time_mode:", res["time_mode"])
-    print("External index entries:", res["external_index_entries"])
+    print("Source app:", res["source_app"])
+    print("Detected time_mode:", res.get("time_mode", "unknown"))
+    print("External index entries:", res.get("external_index_entries", 0))
     print("Conversations exported:", len(res["exported"]))
     print("Output dir:", res["out_dir"])
     return 0

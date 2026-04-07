@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0] - 2026-04-07
+### Changed
+- Refactored the export flow to support pluggable importers.
+- Introduced a normalized conversation model as the internal export format.
+- Split generic rendering from Threema-specific import and TECH-report logic.
+- Reorganized the package structure to prepare for additional chat sources.
+
 ## [0.1.2] - 2026-02-16
 ### Fixed
 - PDF attachment links now work reliably across PDF readers by URL-encoding link targets.

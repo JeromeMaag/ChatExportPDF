@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 def detect_file_ext(data: bytes) -> str:
     if len(data) >= 2 and data[:2] == b"\xFF\xD8":
         return ".jpg"
@@ -16,6 +17,7 @@ def detect_file_ext(data: bytes) -> str:
     if len(data) >= 2 and data[:2] == b"PK":
         return ".zip"
     return ".bin"
+
 
 def unwrap_by_magic(blob: bytes):
     ext0 = detect_file_ext(blob)

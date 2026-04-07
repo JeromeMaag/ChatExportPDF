@@ -1,8 +1,19 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any, Optional
 
-ENT_MAP = {15:"Audio",16:"Ballot",17:"File",18:"Image",19:"Location",20:"System",21:"Text",22:"Video"}
+ENT_MAP = {
+    15: "Audio",
+    16: "Ballot",
+    17: "File",
+    18: "Image",
+    19: "Location",
+    20: "System",
+    21: "Text",
+    22: "Video",
+}
+
 
 @dataclass
 class Contact:
@@ -43,7 +54,9 @@ class Contact:
     def display_name(self) -> str:
         if self.public_nick and self.public_nick.strip():
             return self.public_nick.strip()
-        name = " ".join([x.strip() for x in [self.first or "", self.last or ""] if x and x.strip()])
+        name = " ".join(
+            [x.strip() for x in [self.first or "", self.last or ""] if x and x.strip()]
+        )
         if name:
             return name
         if self.nick and self.nick.strip():
@@ -51,6 +64,7 @@ class Contact:
         if self.identity and self.identity.strip():
             return self.identity.strip()
         return f"Contact#{self.pk}"
+
 
 @dataclass
 class Conversation:
@@ -65,6 +79,7 @@ class Conversation:
     visibility: Optional[int]
     marked: Optional[int]
 
+
 @dataclass
 class GroupInfo:
     pk: int
@@ -72,6 +87,7 @@ class GroupInfo:
     creator: Optional[str]
     state: Optional[int]
     last_periodic_sync_raw: Any
+
 
 @dataclass
 class Message:
