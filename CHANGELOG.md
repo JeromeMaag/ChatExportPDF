@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0] - 2026-04-07
+### Added
+- Added WhatsApp ZIP import support.
+- Added support for Apple-style and Android-style WhatsApp chat export formats.
+- Added explicit `--chat-text-name` handling for WhatsApp ZIPs with multiple plausible chat text files.
+
+### Changed
+- Updated the README with current usage examples and multi-source export documentation.
+
 ## [0.2.0] - 2026-04-07
 ### Changed
 - Refactored the export flow to support pluggable importers.

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "threema-chat-export"
-version = "0.2.0"
-description = "Export Threema iOS CoreData SQLite chats to PDFs with media extraction"
+version = "0.3.0"
+description = "Export chat conversations from multiple sources to PDFs with optional media extraction"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
