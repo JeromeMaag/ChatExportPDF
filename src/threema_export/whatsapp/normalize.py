@@ -17,16 +17,14 @@ from ..normalized.models import (
 )
 from .zip_reader import WhatsAppZipExport
 
-IOS_MESSAGE_RE = re.compile(
+ANDROID_MESSAGE_RE = re.compile(
     r"^\u200e?(?P<date>\d{2}\.\d{2}\.\d{2}), (?P<time>\d{2}:\d{2}(?::\d{2})?) - (?P<body>.*)$"
 )
-ANDROID_MESSAGE_RE = re.compile(
+IOS_MESSAGE_RE = re.compile(
     r"^\u200e?\[(?P<date>\d{2}\.\d{2}\.\d{2}), (?P<time>\d{2}:\d{2}(?::\d{2})?)\] (?P<body>.*)$"
 )
+ANDROID_ATTACHMENT_RE = re.compile(r"^(?P<filename>.+?) \((?P<label>[^)]+angehängt)\)$")
 IOS_ATTACHMENT_RE = re.compile(
-    r"^(?P<filename>.+?) \((?P<label>[^)]+angehängt)\)$"
-)
-ANDROID_ATTACHMENT_RE = re.compile(
     r"^(?P<label>.*?)\s*\u200e?<Anhang: (?P<filename>[^>]+)>$"
 )
 
@@ -57,7 +55,7 @@ def _parse_timestamp(date_part: str, time_part: str, tz_name: str) -> str:
 
 
 def _match_message_start(raw_line: str):
-    for pattern in (ANDROID_MESSAGE_RE, IOS_MESSAGE_RE):
+    for pattern in (IOS_MESSAGE_RE, ANDROID_MESSAGE_RE):
         match = pattern.match(raw_line)
         if match:
             return match
@@ -66,14 +64,18 @@ def _match_message_start(raw_line: str):
 
 def _extract_attachment(text: str) -> tuple[str, Optional[str], Optional[str]]:
     text = text.lstrip("\u200e").strip()
-    android_match = ANDROID_ATTACHMENT_RE.match(text)
-    if android_match:
-        label = android_match.group("label").strip().lstrip("\u200e").strip()
-        return label, android_match.group("filename").strip(), "Anhang"
-
     ios_match = IOS_ATTACHMENT_RE.match(text)
     if ios_match:
-        return "", ios_match.group("filename").strip(), ios_match.group("label").strip()
+        label = ios_match.group("label").strip().lstrip("\u200e").strip()
+        return label, ios_match.group("filename").strip(), "Anhang"
+
+    android_match = ANDROID_ATTACHMENT_RE.match(text)
+    if android_match:
+        return (
+            "",
+            android_match.group("filename").strip(),
+            android_match.group("label").strip(),
+        )
 
     return text, None, None
 
@@ -86,7 +88,9 @@ def parse_chat_messages(chat_text: str, tz_name: str) -> list[ParsedWhatsAppMess
         match = _match_message_start(raw_line)
         if not match:
             if current is not None:
-                current.text = f"{current.text}\n{raw_line}" if current.text else raw_line
+                current.text = (
+                    f"{current.text}\n{raw_line}" if current.text else raw_line
+                )
                 current.raw_text = f"{current.raw_text}\n{raw_line}"
             continue
 
@@ -99,7 +103,9 @@ def parse_chat_messages(chat_text: str, tz_name: str) -> list[ParsedWhatsAppMess
         text, attachment_name, attachment_label = _extract_attachment(text)
 
         current = ParsedWhatsAppMessage(
-            timestamp=_parse_timestamp(match.group("date"), match.group("time"), tz_name),
+            timestamp=_parse_timestamp(
+                match.group("date"), match.group("time"), tz_name
+            ),
             sender=sender.strip() if sender else None,
             text=text,
             raw_text=raw_line,
@@ -180,8 +186,12 @@ def normalize_whatsapp_conversation(
 ) -> NormalizedConversation:
     title = _normalize_title(export.zip_path.stem)
     senders = [message.sender for message in parsed_messages if message.sender]
-    conversation_type, chat_partner, me_sender = _infer_conversation_type(title, senders)
-    participants = _build_participants(senders, conversation_type, chat_partner, me_sender)
+    conversation_type, chat_partner, me_sender = _infer_conversation_type(
+        title, senders
+    )
+    participants = _build_participants(
+        senders, conversation_type, chat_partner, me_sender
+    )
 
     sender_counts = Counter(senders)
     normalized_messages: list[NormalizedMessage] = []
