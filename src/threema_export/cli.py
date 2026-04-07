@@ -15,12 +15,22 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--source",
         default="threema",
-        help="Source app / importer to use (currently supported: threema)",
+        help="Source app / importer to use (currently supported: threema, whatsapp)",
+    )
+    p.add_argument(
+        "--input-path",
+        default=None,
+        help="Generic input path for the selected source (e.g. WhatsApp ZIP or Threema DB)",
     )
     p.add_argument(
         "--db-path",
-        required=True,
-        help="Path to ThreemaData.sqlite (for source=threema)",
+        default=None,
+        help="Legacy alias for the Threema SQLite path",
+    )
+    p.add_argument(
+        "--chat-text-name",
+        default=None,
+        help="For WhatsApp ZIPs with multiple plausible .txt files: exact chat text filename to use",
     )
     p.add_argument("--out-dir", required=True, help="Output directory")
     p.add_argument(
@@ -69,7 +79,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     setup_logging(args.log_level, args.log_file)
     log = logging.getLogger("threema_export")
     log.info("Starting export with config: %s", vars(args))
-    if not args.external_folder:
+    if args.source == "threema" and not args.external_folder:
         log.warning("No --external-folder specified, media export may be incomplete")
     if args.no_media:
         log.info("Media export disabled by --no-media flag")
@@ -77,9 +87,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         log.info("Will skip media blobs larger than %d bytes", args.max_media_bytes)
 
     cfg = ExportConfig(
-        source_app=args.source,
-        db_path=args.db_path,
         out_dir=args.out_dir,
+        source_app=args.source,
+        input_path=args.input_path,
+        db_path=args.db_path,
+        chat_text_name=args.chat_text_name,
         external_folder=args.external_folder,
         tz_name=args.tz,
         export_media=not args.no_media,

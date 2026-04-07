@@ -46,6 +46,36 @@ def _metadata_value(value: object) -> str:
         return repr(value)
 
 
+def _is_large_metadata_value(value: str) -> bool:
+    return len(value) > 600 or value.count("\n") > 12
+
+
+def _chunk_metadata_value(value: str, chunk_size: int = 900) -> list[str]:
+    normalized = value.replace("\r\n", "\n").replace("\r", "\n")
+    if len(normalized) <= chunk_size:
+        return [normalized]
+
+    chunks: list[str] = []
+    current = ""
+    for line in normalized.split("\n"):
+        candidate = line if not current else f"{current}\n{line}"
+        if len(candidate) <= chunk_size:
+            current = candidate
+            continue
+        if current:
+            chunks.append(current)
+            current = line
+            continue
+        start = 0
+        while start < len(line):
+            chunks.append(line[start : start + chunk_size])
+            start += chunk_size
+        current = ""
+    if current:
+        chunks.append(current)
+    return chunks or [normalized]
+
+
 def _conversation_date_range(conversation: NormalizedConversation) -> tuple[str, str]:
     timestamps = [
         message.timestamp for message in conversation.messages if message.timestamp
@@ -202,8 +232,26 @@ def _build_doc(
     def metadata_rows(title: str, metadata: dict[str, object]):
         if not metadata:
             return [p(f"{esc_xml(title)}: <i>no metadata</i>", normal)]
-        rows = [(key, _metadata_value(metadata[key])) for key in sorted(metadata)]
-        return [p(esc_xml(title), h3), kv_table(rows)]
+        story_parts: list[object] = [p(esc_xml(title), h3)]
+        compact_rows: list[tuple[str, str]] = []
+
+        for key in sorted(metadata):
+            value = _metadata_value(metadata[key])
+            if _is_large_metadata_value(value):
+                if compact_rows:
+                    story_parts.append(kv_table(compact_rows))
+                    compact_rows = []
+                story_parts.append(p(f"<b>{esc_xml(key)}</b>", normal))
+                for chunk in _chunk_metadata_value(value):
+                    story_parts.append(p(esc_xml(chunk), mono))
+                story_parts.append(Spacer(1, 4))
+            else:
+                compact_rows.append((key, value))
+
+        if compact_rows:
+            story_parts.append(kv_table(compact_rows))
+
+        return story_parts
 
     def append_message(story: list[object], message: NormalizedMessage):
         label = f"<b>{esc_xml(message.timestamp or 'NULL')}</b> - <b>{esc_xml(message.sender_display)}</b>"
