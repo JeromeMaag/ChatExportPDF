@@ -10,12 +10,14 @@ from .importers.base import ConversationImporter, ImportedConversation
 from .render.pdf_builder import build_conversation_pdf, build_fallback_tech_pdf
 from .threema.importer import ThreemaImporter
 from .threema.tech_pdf import build_threema_tech_pdf
+from .whatsapp.importer import WhatsAppImporter
 
 log = logging.getLogger(__name__)
 
 
 IMPORTERS: Dict[str, ConversationImporter] = {
     "threema": ThreemaImporter(),
+    "whatsapp": WhatsAppImporter(),
 }
 
 

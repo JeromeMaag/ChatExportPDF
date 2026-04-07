@@ -1,92 +1,136 @@
-# Threema Chat Export (iOS) — PDF Reports
+# Chat Export to PDF
 
-This project exports Threema chats from an iOS CoreData SQLite database into **one readable PDF per chat** and an additional **`*_TECH.pdf`** companion report per chat with more technical/forensic details (IDs, hashes, media provenance, etc.).  
-If configured, it also extracts attachments (images/audio/video/files) into a structured media folder and links to them from the PDFs.
+This project exports chat data from different messenger sources into PDF reports.
 
-## What you need (input artifacts)
+Current sources:
+- `threema`
+- `whatsapp`
 
-### 1) Threema database
+For each conversation, the exporter creates:
+- a readable main PDF
+- a `*_TECH.pdf` report
+
+The main report is generic. The TECH report can be importer-specific. Threema has its own dedicated TECH report. WhatsApp currently uses the generic fallback TECH report.
+
+## Supported Inputs
+
+### Threema
+
 - `ThreemaData.sqlite`
+- optional `_EXTERNAL_DATA` folder for attachment recovery
 
-Example location on iOS:
-- `/private/var/mobile/Containers/Shared/AppGroup/<AppID>/ThreemaData.sqlite`
+Typical source:
+- iOS app container backup or extracted app data
 
-### 2) External attachment storage (recommended)
-- `_EXTERNAL_DATA` directory
+### WhatsApp
 
-Example location on iOS:
-- `/private/var/mobile/Containers/Shared/AppGroup/<AppID>/.ThreemaData_SUPPORT/_EXTERNAL_DATA`
+- exported `.zip` file
+- the ZIP contains:
+  - a chat text file
+  - optional attachments with matching file names
 
+Supported WhatsApp export variants:
+- Android-style chat text:
+  - `31.12.26, 12:00 - User: Message`
+- Apple-style chat text:
+  - `[31.12.26, 12:00:20] User: Message`
 
+If a WhatsApp ZIP contains multiple plausible `.txt` files, the exporter does not guess. In that case you must provide `--chat-text-name`.
 
 ## Output
 
-In `--out-dir` you will get:
+In `--out-dir` the exporter creates:
 
-- `conversations/`  
-  - `conv_<pk>_<title>.pdf` (readable report)  
-  - `conv_<pk>_<title>_TECH.pdf` (technical companion report)
-- `media/` (if enabled)  
-  - one folder per chat with extracted attachments (clickable links from the PDFs)
+- `conversations/`
+  - one readable PDF per conversation
+  - one `*_TECH.pdf` per conversation
+- `media/`
+  - extracted attachments per conversation if media export is enabled
 
-## Console commands
+## Installation
 
-### Install (Repo Directory)
+Requirements:
+- Python `3.10` or newer
+- `pip`
+
+From the repository root, install the project:
+
 ```bash
 python -m pip install -e .
 ```
 
-### Run (recommended: with external folder)
+Optional: use a virtual environment if you do not want to install the dependencies into your global Python environment.
+
+## Usage
+
+### Threema
+
+Recommended with external attachment folder:
+
 ```bash
-python -m threema_export --db-path "./ThreemaData.sqlite" --out-dir "./export" --external-folder "./EXTERNAL"
+python -m threema_export --source threema --input-path "./ThreemaData.sqlite" --out-dir "./export" --external-folder "./_EXTERNAL_DATA"
 ```
 
-### Run (without external folder — attachments may be incomplete)
+### WhatsApp
+
+WhatsApp export:
+
 ```bash
-python -m threema_export --db-path "./ThreemaData.sqlite" --out-dir "./export"
+python -m threema_export --source whatsapp --input-path "./WhatsApp-Chat mit Max Mustermann.zip" --out-dir "./export"
 ```
 
-## Command line options
 
-### Required arguments
-- `--db-path PATH`  
-  Path to `ThreemaData.sqlite`.
+WhatsApp ZIP with multiple plausible text files:
 
-- `--out-dir PATH`  
-  Output directory. Will be created if it does not exist.
+```bash
+python -m threema_export --source whatsapp --input-path "./WhatsApp Chat - Max Mustermann.zip" --chat-text-name "_chat.txt" --out-dir "./export"
+```
 
-### Optional arguments
-- `--external-folder PATH` (default: not set)  
-  Folder containing the `_EXTERNAL_DATA` files.  
-  Recommended for complete attachment export.
+## Command Line Options
 
-- `--tz TIMEZONE` (default: `Europe/Zurich`)  
-  Timezone used for rendering timestamps in PDFs.
+### Required
 
-- `--no-media`  
-  Disable media export entirely (PDFs only, no `media/` folder).
+- `--out-dir PATH`
+  Output directory. It is created if it does not exist.
 
-- `--max-media-bytes N` (default: `0`)  
-  Skip media blobs larger than `N` bytes.  
-  `0` disables the size limit.
+### Source Selection
 
-- `--limit-conversations N` (default: `0`)  
-  Process only the first `N` conversations.  
-  `0` means all conversations.
+- `--source {threema,whatsapp}`
+  Selects the importer. Default: `threema`.
 
-- `--limit-messages N` (default: `0`)  
-  Process only the first `N` messages per conversation.  
-  `0` means all messages.
+- `--input-path PATH`
+  Generic input path for the selected source.
+  - for `threema`: path to `ThreemaData.sqlite`
+  - for `whatsapp`: path to the exported `.zip`
 
-- `--log-level LEVEL` (default: `INFO`)  
+- `--db-path PATH`
+  Legacy alias for the Threema database path.
+
+- `--chat-text-name NAME`
+  Only relevant for WhatsApp. Forces a specific chat text file inside the ZIP when multiple plausible `.txt` files exist.
+
+### Optional
+
+- `--external-folder PATH`
+  Threema only. Path to `_EXTERNAL_DATA`. Recommended for complete attachment export.
+
+- `--tz TIMEZONE`
+  Timezone for rendered timestamps. Default: `Europe/Zurich`.
+
+- `--no-media`
+  Disable attachment export. PDFs are still generated.
+
+- `--max-media-bytes N`
+  Skip media blobs larger than `N` bytes. `0` disables the limit.
+
+- `--limit-conversations N`
+  Process only the first `N` conversations. `0` means all.
+
+- `--limit-messages N`
+  Process only the first `N` messages per conversation. `0` means all.
+
+- `--log-level LEVEL`
   Logging verbosity. Allowed values: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
 
-- `--log-file PATH` (default: not set)  
+- `--log-file PATH`
   Write logs additionally to a file.
-
-## Future Ideas:
-- HTML Export
-- Statistics - Page with stats per Chat (Messages, Media etc)
-- Forensic Report
-- Database Overview 
-

@@ -30,10 +30,7 @@ class ThreemaImporter:
     source_app = "threema"
 
     def load_conversations(self, cfg: ExportConfig) -> ImportRun:
-        if not cfg.db_path:
-            raise ValueError("Threema importer requires db_path")
-
-        conn = connect_db(cfg.db_path)
+        conn = connect_db(cfg.resolved_input_path())
         try:
             time_mode = auto_detect_time_mode(conn)
             log.info("Auto-detected time mode: %s", time_mode)
@@ -136,7 +133,7 @@ class ThreemaImporter:
                 source_app=self.source_app,
                 conversations=imported,
                 metadata={
-                    "db_path": cfg.db_path,
+                    "input_path": cfg.resolved_input_path(),
                     "time_mode": time_mode,
                     "timezone": cfg.tz_name,
                     "external_folder": os.path.abspath(cfg.external_folder)
