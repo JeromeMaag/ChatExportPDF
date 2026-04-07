@@ -3,6 +3,9 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List, Optional
 
+from ..common.textutil import normalize_for_pdf
+from ..common.timeutil import format_dt
+from ..common.util import blob_prefix_hex
 from ..normalized.models import (
     NormalizedAttachment,
     NormalizedConversation,
@@ -11,9 +14,6 @@ from ..normalized.models import (
     NormalizedParticipant,
     NormalizedReaction,
 )
-from ..textutil import normalize_for_pdf
-from ..timeutil import format_dt
-from ..util import blob_prefix_hex
 from .models import ENT_MAP, Contact, Conversation, GroupInfo, Message
 
 

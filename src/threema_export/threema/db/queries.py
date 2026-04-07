@@ -1,10 +1,12 @@
 from __future__ import annotations
+
 import sqlite3
 from typing import Dict, List
 
-from ..threema.models import Contact, Conversation, GroupInfo, Message
-from ..util import bytes_to_hex
+from ...common.util import bytes_to_hex
+from ..models import Contact, Conversation, GroupInfo, Message
 from .schema import row_get, table_columns
+
 
 def load_contacts(conn: sqlite3.Connection) -> Dict[int, Contact]:
     cur = conn.cursor()
@@ -54,6 +56,7 @@ def load_contacts(conn: sqlite3.Connection) -> Dict[int, Contact]:
         )
     return out
 
+
 def load_groups(conn: sqlite3.Connection) -> Dict[str, GroupInfo]:
     cur = conn.cursor()
     cur.execute("SELECT Z_PK, ZGROUPID, ZGROUPCREATOR, ZSTATE, ZLASTPERIODICSYNC FROM ZGROUP;")
@@ -69,6 +72,7 @@ def load_groups(conn: sqlite3.Connection) -> Dict[str, GroupInfo]:
                 last_periodic_sync_raw=r["ZLASTPERIODICSYNC"],
             )
     return out
+
 
 def load_conversations(conn: sqlite3.Connection) -> List[Conversation]:
     cur = conn.cursor()
@@ -98,6 +102,7 @@ def load_conversations(conn: sqlite3.Connection) -> List[Conversation]:
         )
     return out
 
+
 def load_group_members(conn: sqlite3.Connection) -> Dict[int, List[int]]:
     cur = conn.cursor()
     m: Dict[int, List[int]] = {}
@@ -107,6 +112,7 @@ def load_group_members(conn: sqlite3.Connection) -> Dict[int, List[int]]:
         contact_pk = int(r["Z_6MEMBERS"])
         m.setdefault(conv_pk, []).append(contact_pk)
     return m
+
 
 def load_messages_for_conversation(conn: sqlite3.Connection, conv_pk: int) -> List[Message]:
     cols = table_columns(conn, "ZMESSAGE")
@@ -135,50 +141,51 @@ def load_messages_for_conversation(conn: sqlite3.Connection, conv_pk: int) -> Li
     for r in cur.fetchall():
         out.append(
             Message(
-                pk=int(row_get(r,"Z_PK")),
-                ent=int(row_get(r,"Z_ENT")),
-                conversation_pk=int(row_get(r,"ZCONVERSATION")),
-                sender_pk=row_get(r,"ZSENDER"),
-                is_own=row_get(r,"ZISOWN"),
-                date_raw=row_get(r,"ZDATE"),
-                delivered=row_get(r,"ZDELIVERED"),
-                read=row_get(r,"ZREAD"),
-                sent=row_get(r,"ZSENT"),
-                sendfailed=row_get(r,"ZSENDFAILED"),
-                userack=row_get(r,"ZUSERACK"),
-                deliverydate_raw=row_get(r,"ZDELIVERYDATE"),
-                readdate_raw=row_get(r,"ZREADDATE"),
-                remotesentdate_raw=row_get(r,"ZREMOTESENTDATE"),
-                lasteditedat_raw=row_get(r,"ZLASTEDITEDAT"),
-                deletedat_raw=row_get(r,"ZDELETEDAT"),
-                text=row_get(r,"ZTEXT"),
-                caption=row_get(r,"ZCAPTION"),
-                filename=row_get(r,"ZFILENAME"),
-                mimetype=row_get(r,"ZMIMETYPE"),
-                json=row_get(r,"ZJSON"),
-                zid=row_get(r,"ZID"),
-                quoted_message_id=row_get(r,"ZQUOTEDMESSAGEID"),
-                blobid=row_get(r,"ZBLOBID"),
-                blobthumbid=row_get(r,"ZBLOBTHUMBNAILID"),
-                imageblobid=row_get(r,"ZIMAGEBLOBID"),
-                audioblobid=row_get(r,"ZAUDIOBLOBID"),
-                videoblobid=row_get(r,"ZVIDEOBLOBID"),
-                encryptionkey=row_get(r,"ZENCRYPTIONKEY"),
-                encryptionkey1=row_get(r,"ZENCRYPTIONKEY1"),
-                encryptionkey2=row_get(r,"ZENCRYPTIONKEY2"),
-                encryptionkey3=row_get(r,"ZENCRYPTIONKEY3"),
-                imagenonce=row_get(r,"ZIMAGENONCE"),
-                arg=row_get(r,"ZARG"),
-                zimage_fk=row_get(r,"ZIMAGE"),
-                zaudio_fk=row_get(r,"ZAUDIO"),
-                zvideo_fk=row_get(r,"ZVIDEO"),
-                zdata_fk=row_get(r,"ZDATA"),
-                ztype=row_get(r,"ZTYPE"),
-                zflags=row_get(r,"ZFLAGS"),
-                zorigin=row_get(r,"ZORIGIN"),
+                pk=int(row_get(r, "Z_PK")),
+                ent=int(row_get(r, "Z_ENT")),
+                conversation_pk=int(row_get(r, "ZCONVERSATION")),
+                sender_pk=row_get(r, "ZSENDER"),
+                is_own=row_get(r, "ZISOWN"),
+                date_raw=row_get(r, "ZDATE"),
+                delivered=row_get(r, "ZDELIVERED"),
+                read=row_get(r, "ZREAD"),
+                sent=row_get(r, "ZSENT"),
+                sendfailed=row_get(r, "ZSENDFAILED"),
+                userack=row_get(r, "ZUSERACK"),
+                deliverydate_raw=row_get(r, "ZDELIVERYDATE"),
+                readdate_raw=row_get(r, "ZREADDATE"),
+                remotesentdate_raw=row_get(r, "ZREMOTESENTDATE"),
+                lasteditedat_raw=row_get(r, "ZLASTEDITEDAT"),
+                deletedat_raw=row_get(r, "ZDELETEDAT"),
+                text=row_get(r, "ZTEXT"),
+                caption=row_get(r, "ZCAPTION"),
+                filename=row_get(r, "ZFILENAME"),
+                mimetype=row_get(r, "ZMIMETYPE"),
+                json=row_get(r, "ZJSON"),
+                zid=row_get(r, "ZID"),
+                quoted_message_id=row_get(r, "ZQUOTEDMESSAGEID"),
+                blobid=row_get(r, "ZBLOBID"),
+                blobthumbid=row_get(r, "ZBLOBTHUMBNAILID"),
+                imageblobid=row_get(r, "ZIMAGEBLOBID"),
+                audioblobid=row_get(r, "ZAUDIOBLOBID"),
+                videoblobid=row_get(r, "ZVIDEOBLOBID"),
+                encryptionkey=row_get(r, "ZENCRYPTIONKEY"),
+                encryptionkey1=row_get(r, "ZENCRYPTIONKEY1"),
+                encryptionkey2=row_get(r, "ZENCRYPTIONKEY2"),
+                encryptionkey3=row_get(r, "ZENCRYPTIONKEY3"),
+                imagenonce=row_get(r, "ZIMAGENONCE"),
+                arg=row_get(r, "ZARG"),
+                zimage_fk=row_get(r, "ZIMAGE"),
+                zaudio_fk=row_get(r, "ZAUDIO"),
+                zvideo_fk=row_get(r, "ZVIDEO"),
+                zdata_fk=row_get(r, "ZDATA"),
+                ztype=row_get(r, "ZTYPE"),
+                zflags=row_get(r, "ZFLAGS"),
+                zorigin=row_get(r, "ZORIGIN"),
             )
         )
     return out
+
 
 def load_reactions(conn: sqlite3.Connection, msg_pk: int) -> List[sqlite3.Row]:
     cur = conn.cursor()
@@ -192,6 +199,7 @@ def load_reactions(conn: sqlite3.Connection, msg_pk: int) -> List[sqlite3.Row]:
         (msg_pk, msg_pk),
     )
     return cur.fetchall()
+
 
 def load_history(conn: sqlite3.Connection, msg_pk: int) -> List[sqlite3.Row]:
     cur = conn.cursor()

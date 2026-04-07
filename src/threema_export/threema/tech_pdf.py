@@ -12,10 +12,10 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from ..pdf.styles import build_styles
-from ..textutil import esc_xml, normalize_for_pdf
-from ..timeutil import format_dt
-from ..util import blob_prefix_hex, relpath_for_link
+from ..common.textutil import esc_xml, normalize_for_pdf
+from ..common.timeutil import format_dt
+from ..common.util import blob_prefix_hex, relpath_for_link
+from ..render.pdf_styles import build_styles
 from .models import ENT_MAP, Contact, Conversation, GroupInfo, Message
 
 log = logging.getLogger(__name__)

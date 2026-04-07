@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import re
 from typing import List, Tuple
 
 try:
     import emoji as emoji_pkg
+
     HAS_EMOJI = True
 except Exception:
     emoji_pkg = None
@@ -11,11 +13,14 @@ except Exception:
 
 _CTRL_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
 
+
 def strip_controls(s: str) -> str:
     return _CTRL_RE.sub("", s or "")
 
+
 def esc_xml(s: str) -> str:
-    return (s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
 
 def demojize_text(s: str) -> Tuple[str, List[str]]:
     s = strip_controls(s)
@@ -40,6 +45,7 @@ def demojize_text(s: str) -> Tuple[str, List[str]]:
             cps.append(f"U+{o:04X}")
             out_chars.append(f"[U+{o:04X}]")
     return "".join(out_chars), sorted(set(cps))
+
 
 def normalize_for_pdf(text: str) -> Tuple[str, List[str]]:
     t, cps = demojize_text(text or "")

@@ -3,8 +3,8 @@ import argparse
 import logging
 from typing import Optional
 
+from .common.logging_setup import setup_logging
 from .config import ExportConfig
-from .logging_setup import setup_logging
 from .orchestrator import export_all_conversations
 
 

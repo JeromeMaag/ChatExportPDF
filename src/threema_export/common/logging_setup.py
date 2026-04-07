@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+
 def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> None:
     lvl = getattr(logging, level.upper(), logging.INFO)
     handlers = [logging.StreamHandler()]

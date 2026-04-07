@@ -1,14 +1,15 @@
 from __future__ import annotations
+
 import hashlib
 import logging
 import os
 import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
 
+from ...common.timeutil import dt_compact
+from ...common.util import ensure_dir, safe_filename, sha256_file
 from ..external_index import resolve_pointer_if_needed
-from ..threema.models import Message
-from ..timeutil import dt_compact
-from ..util import ensure_dir, safe_filename, sha256_file
+from ..models import Message
 from .magic import unwrap_by_magic
 
 log = logging.getLogger(__name__)
@@ -70,14 +71,12 @@ def export_media_for_message(
     ensure_dir(conv_media_dir)
     items: List[Dict[str, Any]] = []
 
-    # Counters for a compact per-message summary log
     exported_count = 0
     skipped_count = 0
     pointer_found = 0
     pointer_resolved = 0
     pointer_missing = 0
 
-    # Local helper to write bytes with error handling
     def _write_bytes(path: str, data: bytes) -> None:
         try:
             with open(path, "wb") as f:
@@ -94,7 +93,6 @@ def export_media_for_message(
             return
 
         for idx, (source_label, data) in enumerate(blobs):
-            # Size limit
             if max_media_bytes and len(data) > max_media_bytes:
                 skipped_count += 1
                 items.append(
@@ -120,12 +118,14 @@ def export_media_for_message(
             raw_path = None
             if keep_raw:
                 raw_path = os.path.join(
-                    conv_media_dir, f"msg_{msg.pk}_{kind}_{idx}_raw.bin"
+                    conv_media_dir,
+                    f"msg_{msg.pk}_{kind}_{idx}_raw.bin",
                 )
                 _write_bytes(raw_path, data)
 
             payload, pointer_uuid, external_path = resolve_pointer_if_needed(
-                data, external_index
+                data,
+                external_index,
             )
 
             pointer_dump_path = None
@@ -145,14 +145,21 @@ def export_media_for_message(
 
                 if keep_raw:
                     pointer_dump_path = os.path.join(
-                        conv_media_dir, f"msg_{msg.pk}_{kind}_{idx}_pointer_raw.bin"
+                        conv_media_dir,
+                        f"msg_{msg.pk}_{kind}_{idx}_pointer_raw.bin",
                     )
                     _write_bytes(pointer_dump_path, data)
 
             unwrapped, ext, unwrap_mode = unwrap_by_magic(payload)
 
             friendly = make_friendly_attachment_name(
-                chat_title, msg, sender, kind, time_mode, tz_name, ext
+                chat_title,
+                msg,
+                sender,
+                kind,
+                time_mode,
+                tz_name,
+                ext,
             )
             export_path = os.path.join(conv_media_dir, friendly)
             _write_bytes(export_path, unwrapped)

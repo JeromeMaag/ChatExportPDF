@@ -18,10 +18,10 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from ..common.textutil import esc_xml, normalize_for_pdf
+from ..common.util import relpath_for_link
 from ..normalized.models import NormalizedConversation, NormalizedMessage
-from ..pdf.styles import build_styles
-from ..textutil import esc_xml, normalize_for_pdf
-from ..util import relpath_for_link
+from .pdf_styles import build_styles
 
 log = logging.getLogger(__name__)
 
