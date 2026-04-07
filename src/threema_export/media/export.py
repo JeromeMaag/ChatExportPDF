@@ -6,7 +6,7 @@ import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..external_index import resolve_pointer_if_needed
-from ..models import Message
+from ..threema.models import Message
 from ..timeutil import dt_compact
 from ..util import ensure_dir, safe_filename, sha256_file
 from .magic import unwrap_by_magic

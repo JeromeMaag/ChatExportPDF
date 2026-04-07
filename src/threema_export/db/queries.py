@@ -2,7 +2,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Dict, List
 
-from ..models import Contact, Conversation, GroupInfo, Message
+from ..threema.models import Contact, Conversation, GroupInfo, Message
 from ..util import bytes_to_hex
 from .schema import row_get, table_columns
 
