@@ -34,12 +34,14 @@ IMAGE_PREVIEW_DPI = 144
 
 
 def exporter_version() -> str:
-    try:
-        return pkg_version("threema-chat-export")
-    except PackageNotFoundError:
-        return "dev"
-    except Exception:
-        return "unknown"
+    for package_name in ("chat-export-pdf", "threema-chat-export"):
+        try:
+            return pkg_version(package_name)
+        except PackageNotFoundError:
+            continue
+        except Exception:
+            return "unknown"
+    return "dev"
 
 
 def _metadata_value(value: object) -> str:
@@ -426,10 +428,10 @@ def _build_doc(
         ("TimeMode", conversation.time_mode),
     ]
 
-    story.append(p(f"CHAT EXPORT - {esc_xml(conversation.title)}", h1))
+    story.append(p(f"ChatExportPDF - {esc_xml(conversation.title)}", h1))
     story.append(
         p(
-            f"<font color='#666666'>Exporter: threema-chat-export v{esc_xml(exporter_version())}</font>",
+            f"<font color='#666666'>Exporter: ChatExportPDF v{esc_xml(exporter_version())}</font>",
             normal,
         )
     )

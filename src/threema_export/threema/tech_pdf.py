@@ -37,12 +37,14 @@ class ThreemaTechnicalConversation:
 
 
 def exporter_version() -> str:
-    try:
-        return pkg_version("threema-chat-export")
-    except PackageNotFoundError:
-        return "dev"
-    except Exception:
-        return "unknown"
+    for package_name in ("chat-export-pdf", "threema-chat-export"):
+        try:
+            return pkg_version(package_name)
+        except PackageNotFoundError:
+            continue
+        except Exception:
+            return "unknown"
+    return "dev"
 
 
 def conv_type(conv: Conversation) -> str:
@@ -435,10 +437,10 @@ def build_threema_tech_pdf(tech: ThreemaTechnicalConversation, pdf_path: str) ->
         bottomMargin=15 * mm,
     )
 
-    story.append(p(f"CHAT EXPORT - {esc_xml(tech.chat_title)}", h1))
+    story.append(p(f"ChatExportPDF - {esc_xml(tech.chat_title)}", h1))
     story.append(
         p(
-            f"<font color='#666666'>Exporter: threema-chat-export v{esc_xml(exporter_version())}</font>",
+            f"<font color='#666666'>Exporter: ChatExportPDF v{esc_xml(exporter_version())}</font>",
             normal,
         )
     )
