@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.0] - 2026-04-08
+### Changed
+- Added chat-style message bubbles in the normal PDF export.
+- Messages from the detected self participant are rendered on the right; other messages are rendered on the left.
+- Direct chats fall back to the first sender on the right if no self participant is known.
+
 ## [0.4.0] - 2026-04-08
 ### Changed
 - Renamed the project to `ChatExportPDF`.

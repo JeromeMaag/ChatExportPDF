@@ -7,8 +7,10 @@ from io import BytesIO
 from urllib.parse import quote
 
 from importlib.metadata import PackageNotFoundError, version as pkg_version
+from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import Image as RLImage
 from reportlab.platypus import (
@@ -23,7 +25,11 @@ from PIL import Image as PILImage, ImageOps, UnidentifiedImageError
 
 from ..common.textutil import esc_xml, normalize_for_pdf
 from ..common.util import relpath_for_link
-from ..normalized.models import NormalizedConversation, NormalizedMessage
+from ..normalized.models import (
+    NormalizedAttachment,
+    NormalizedConversation,
+    NormalizedMessage,
+)
 from .pdf_styles import build_styles
 
 log = logging.getLogger(__name__)
@@ -31,6 +37,18 @@ log = logging.getLogger(__name__)
 IMAGE_PREVIEW_MAX_WIDTH = 85 * mm
 IMAGE_PREVIEW_MAX_HEIGHT = 60 * mm
 IMAGE_PREVIEW_DPI = 144
+CHAT_BUBBLE_MAX_WIDTH = 118 * mm
+CHAT_SYSTEM_MAX_WIDTH = 94 * mm
+CHAT_BUBBLE_LEFT_BG = colors.HexColor("#F1F1F1")
+CHAT_BUBBLE_RIGHT_BG = colors.HexColor("#DCF8C6")
+CHAT_SYSTEM_BG = colors.HexColor("#E9E9E9")
+IMAGE_PREVIEW_EXCEPTIONS = (
+    FileNotFoundError,
+    OSError,
+    UnidentifiedImageError,
+    ValueError,
+    PILImage.DecompressionBombError,
+)
 
 
 def exporter_version() -> str:
@@ -81,6 +99,21 @@ def _chunk_metadata_value(value: str, chunk_size: int = 900) -> list[str]:
     if current:
         chunks.append(current)
     return chunks or [normalized]
+
+
+def _right_side_participant_id(
+    conversation: NormalizedConversation,
+) -> Optional[str]:
+    if conversation.self_participant_id:
+        return conversation.self_participant_id
+    if conversation.conversation_type != "direct":
+        return None
+    for message in conversation.messages:
+        if message.sender_id and message.message_type != "system":
+            return message.sender_id
+    if len(conversation.participants) == 2:
+        return conversation.participants[0].participant_id
+    return None
 
 
 def _conversation_date_range(conversation: NormalizedConversation) -> tuple[str, str]:
@@ -176,9 +209,39 @@ def _build_doc(
     h2 = styles["h2"]
     h3 = styles["h3"]
     mono = styles["mono"]
+    bubble_header = ParagraphStyle(
+        "bubble_header",
+        parent=normal,
+        fontSize=8.0,
+        leading=9.5,
+        textColor=colors.HexColor("#666666"),
+        spaceAfter=1,
+    )
+    bubble_body = ParagraphStyle(
+        "bubble_body",
+        parent=normal,
+        fontSize=9.2,
+        leading=11.8,
+    )
+    bubble_aux = ParagraphStyle(
+        "bubble_aux",
+        parent=normal,
+        fontSize=8.0,
+        leading=9.5,
+        textColor=colors.HexColor("#555555"),
+    )
+    system_style = ParagraphStyle(
+        "system_message",
+        parent=normal,
+        fontSize=8.2,
+        leading=10.0,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor("#555555"),
+    )
 
     start_dt, end_dt = _conversation_date_range(conversation)
     counts = _case_summary(conversation)
+    right_side_id = _right_side_participant_id(conversation)
 
     def p(text: str, style=normal):
         return Paragraph(text.replace("\n", "<br/>"), style)
@@ -193,6 +256,73 @@ def _build_doc(
 
     def rel(target_abs: str) -> str:
         return relpath_for_link(target_abs, pdf_path)
+
+    def _message_chunks(text: str, *, chunk_size: int = 450) -> list[str]:
+        normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+        parts: list[str] = []
+        for paragraph in normalized.split("\n"):
+            if not paragraph:
+                parts.append("")
+                continue
+            for chunk in _chunk_metadata_value(paragraph, chunk_size=chunk_size):
+                parts.append(chunk)
+        return parts or [normalized]
+
+    def _attachment_filename(attachment: NormalizedAttachment) -> str:
+        if attachment.filename:
+            return attachment.filename
+        if attachment.absolute_path:
+            return os.path.basename(attachment.absolute_path)
+        return "attachment"
+
+    def _attachment_link(
+        attachment: NormalizedAttachment,
+        *,
+        style=normal,
+    ) -> Paragraph | None:
+        if not attachment.absolute_path:
+            return None
+        return link(
+            f"Attachment ({attachment.kind}) [{_attachment_filename(attachment)}]",
+            rel(attachment.absolute_path),
+            style,
+        )
+
+    def _image_preview_or_none(
+        message: NormalizedMessage,
+        attachment: NormalizedAttachment,
+    ) -> RLImage | None:
+        if not (
+            include_image_previews
+            and attachment.kind == "image"
+            and attachment.absolute_path
+        ):
+            return None
+        try:
+            return _build_image_preview_flowable(attachment.absolute_path)
+        except IMAGE_PREVIEW_EXCEPTIONS as exc:
+            log.warning(
+                "Image preview failed for %s in conversation=%s message=%s: %s",
+                attachment.absolute_path,
+                conversation.conversation_id,
+                message.message_id,
+                exc,
+            )
+            return None
+
+    def _reaction_summary(message: NormalizedMessage) -> str | None:
+        if not message.reactions:
+            return None
+        parts = [
+            f"{reaction.reaction} by {reaction.creator_display}"
+            for reaction in message.reactions[:20]
+        ]
+        suffix = (
+            ""
+            if len(message.reactions) <= 20
+            else f" ...(+{len(message.reactions) - 20})"
+        )
+        return ", ".join(parts) + suffix
 
     def kv_table(rows: list[tuple[str, str]], *, col_widths=None, font_size=7.0):
         data = [[p("<b>Field</b>"), p("<b>Value</b>")]] + [
@@ -309,7 +439,7 @@ def _build_doc(
 
         return story_parts
 
-    def append_message(story: list[object], message: NormalizedMessage):
+    def append_message_linear(story: list[object], message: NormalizedMessage):
         label = f"<b>{esc_xml(message.timestamp or 'NULL')}</b> - <b>{esc_xml(message.sender_display)}</b>"
         tail = f" <font color='#666666'>({esc_xml(message.message_type)}, {esc_xml(message.status or 'unknown')})</font>"
         story.append(p(label + tail, normal))
@@ -327,38 +457,14 @@ def _build_doc(
             story.append(p(f"<i>Caption:</i> {esc_xml(caption_norm)}", normal))
 
         for attachment in message.attachments:
-            if not attachment.absolute_path:
+            attachment_link = _attachment_link(attachment, style=normal)
+            if attachment_link is None:
                 continue
-            filename = attachment.filename or os.path.basename(attachment.absolute_path)
-            story.append(
-                link(
-                    f"Attachment ({attachment.kind}) [{filename}]",
-                    rel(attachment.absolute_path),
-                    normal,
-                )
-            )
-            if (
-                include_image_previews
-                and attachment.kind == "image"
-                and attachment.absolute_path
-            ):
-                try:
-                    story.append(_build_image_preview_flowable(attachment.absolute_path))
-                    story.append(Spacer(1, 6))
-                except (
-                    FileNotFoundError,
-                    OSError,
-                    UnidentifiedImageError,
-                    ValueError,
-                    PILImage.DecompressionBombError,
-                ) as exc:
-                    log.warning(
-                        "Image preview failed for %s in conversation=%s message=%s: %s",
-                        attachment.absolute_path,
-                        conversation.conversation_id,
-                        message.message_id,
-                        exc,
-                    )
+            story.append(attachment_link)
+            preview = _image_preview_or_none(message, attachment)
+            if preview is not None:
+                story.append(preview)
+                story.append(Spacer(1, 6))
             if include_metadata_dump:
                 attachment_rows = [
                     ("attachment_id", attachment.attachment_id),
@@ -372,17 +478,9 @@ def _build_doc(
                 )
                 story.append(kv_table(attachment_rows, font_size=6.6))
 
-        if message.reactions:
-            parts = [
-                f"{reaction.reaction} by {reaction.creator_display}"
-                for reaction in message.reactions[:20]
-            ]
-            suffix = (
-                ""
-                if len(message.reactions) <= 20
-                else f" ...(+{len(message.reactions) - 20})"
-            )
-            story.append(p("Reactions: " + esc_xml(", ".join(parts) + suffix), normal))
+        reaction_summary = _reaction_summary(message)
+        if reaction_summary:
+            story.append(p("Reactions: " + esc_xml(reaction_summary), normal))
 
         if message.edits:
             story.append(p(f"Edited: yes ({len(message.edits)}x)", normal))
@@ -400,6 +498,137 @@ def _build_doc(
             story.extend(metadata_rows("Message metadata", message.metadata))
 
         story.append(Spacer(1, 10))
+
+    def _bubble_table(
+        rows: list[list[object]],
+        *,
+        h_align: str,
+        background: colors.Color,
+        max_width: float = CHAT_BUBBLE_MAX_WIDTH,
+    ) -> Table:
+        bubble = Table(rows, colWidths=[max_width], hAlign=h_align)
+        bubble.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), background),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
+        )
+        return bubble
+
+    def _aligned_block(flowable: object, *, alignment: str) -> Table:
+        if alignment == "right":
+            data = [["", flowable]]
+            col_widths = [56 * mm, 118 * mm]
+        else:
+            data = [[flowable, ""]]
+            col_widths = [118 * mm, 56 * mm]
+        block = Table(data, colWidths=col_widths)
+        block.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        return block
+
+    def _message_alignment(message: NormalizedMessage) -> str:
+        if message.message_type == "system":
+            return "center"
+        if right_side_id and message.sender_id == right_side_id:
+            return "right"
+        return "left"
+
+    def append_message_bubble(story: list[object], message: NormalizedMessage):
+        alignment = _message_alignment(message)
+        attachment_links: list[object] = []
+
+        if alignment == "center":
+            system_bits: list[str] = []
+            if message.timestamp:
+                system_bits.append(message.timestamp)
+            if message.text:
+                text_norm, _ = normalize_for_pdf(message.text)
+                system_bits.append(text_norm)
+            elif message.caption:
+                caption_norm, _ = normalize_for_pdf(message.caption)
+                system_bits.append(caption_norm)
+            elif message.sender_display and message.sender_display != "System":
+                system_bits.append(message.sender_display)
+            body = " - ".join(bit for bit in system_bits if bit) or "System event"
+            story.append(
+                _bubble_table(
+                    [[p(esc_xml(body), system_style)]],
+                    h_align="CENTER",
+                    background=CHAT_SYSTEM_BG,
+                    max_width=CHAT_SYSTEM_MAX_WIDTH,
+                )
+            )
+            story.append(Spacer(1, 8))
+            return
+
+        bubble_rows: list[list[object]] = []
+        if conversation.conversation_type == "group":
+            header_bits = [f"<b>{esc_xml(message.sender_display)}</b>"]
+            if message.timestamp:
+                header_bits.append(esc_xml(message.timestamp))
+            bubble_rows.append([p(" - ".join(header_bits), bubble_header)])
+        elif message.timestamp:
+            bubble_rows.append([p(esc_xml(message.timestamp), bubble_header)])
+
+        if message.quoted_preview:
+            quoted, _ = normalize_for_pdf(message.quoted_preview)
+            for chunk in _message_chunks(quoted, chunk_size=260):
+                bubble_rows.append([p(esc_xml(chunk).replace("\n", "<br/>"), bubble_aux)])
+
+        if message.text:
+            text_norm, _ = normalize_for_pdf(message.text)
+            for chunk in _message_chunks(text_norm):
+                bubble_rows.append([p(esc_xml(chunk).replace("\n", "<br/>"), bubble_body)])
+
+        if message.caption:
+            caption_norm, _ = normalize_for_pdf(message.caption)
+            for chunk in _message_chunks(f"Caption: {caption_norm}", chunk_size=320):
+                bubble_rows.append([p(f"<i>{esc_xml(chunk).replace('\n', '<br/>')}</i>", bubble_aux)])
+
+        for attachment in message.attachments:
+            preview = _image_preview_or_none(message, attachment)
+            if preview is not None:
+                bubble_rows.append([preview])
+            attachment_link = _attachment_link(attachment, style=bubble_aux)
+            if attachment_link is not None:
+                attachment_links.append(attachment_link)
+
+        reaction_summary = _reaction_summary(message)
+        if reaction_summary:
+            bubble_rows.append([p("Reactions: " + esc_xml(reaction_summary), bubble_aux)])
+
+        if message.edits:
+            bubble_rows.append([p(f"Edited: yes ({len(message.edits)}x)", bubble_aux)])
+
+        if not bubble_rows:
+            bubble_rows.append([p("<i>Empty message</i>", bubble_aux)])
+
+        story.append(
+            _bubble_table(
+                bubble_rows,
+                h_align="RIGHT" if alignment == "right" else "LEFT",
+                background=CHAT_BUBBLE_RIGHT_BG if alignment == "right" else CHAT_BUBBLE_LEFT_BG,
+            )
+        )
+        for attachment_link in attachment_links:
+            story.append(_aligned_block(attachment_link, alignment=alignment))
+        story.append(Spacer(1, 8))
 
     story: list[object] = []
     doc = SimpleDocTemplate(
@@ -460,7 +689,10 @@ def _build_doc(
     story.append(Spacer(1, 8))
 
     for message in conversation.messages:
-        append_message(story, message)
+        if include_metadata_dump:
+            append_message_linear(story, message)
+        else:
+            append_message_bubble(story, message)
 
     story.append(PageBreak())
     story.append(p("Attachment Index", h1))

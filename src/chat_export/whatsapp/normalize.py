@@ -17,14 +17,14 @@ from ..normalized.models import (
 )
 from .zip_reader import WhatsAppZipExport
 
-ANDROID_MESSAGE_RE = re.compile(
+PLAIN_MESSAGE_RE = re.compile(
     r"^\u200e?(?P<date>\d{2}\.\d{2}\.\d{2}), (?P<time>\d{2}:\d{2}(?::\d{2})?) - (?P<body>.*)$"
 )
-IOS_MESSAGE_RE = re.compile(
+BRACKETED_MESSAGE_RE = re.compile(
     r"^\u200e?\[(?P<date>\d{2}\.\d{2}\.\d{2}), (?P<time>\d{2}:\d{2}(?::\d{2})?)\] (?P<body>.*)$"
 )
-ANDROID_ATTACHMENT_RE = re.compile(r"^(?P<filename>.+?) \((?P<label>[^)]+angehängt)\)$")
-IOS_ATTACHMENT_RE = re.compile(
+PLAIN_ATTACHMENT_RE = re.compile(r"^(?P<filename>.+?) \((?P<label>[^)]+angehängt)\)$")
+BRACKETED_ATTACHMENT_RE = re.compile(
     r"^(?P<label>.*?)\s*\u200e?<Anhang: (?P<filename>[^>]+)>$"
 )
 
@@ -55,7 +55,7 @@ def _parse_timestamp(date_part: str, time_part: str, tz_name: str) -> str:
 
 
 def _match_message_start(raw_line: str):
-    for pattern in (IOS_MESSAGE_RE, ANDROID_MESSAGE_RE):
+    for pattern in (BRACKETED_MESSAGE_RE, PLAIN_MESSAGE_RE):
         match = pattern.match(raw_line)
         if match:
             return match
@@ -64,17 +64,17 @@ def _match_message_start(raw_line: str):
 
 def _extract_attachment(text: str) -> tuple[str, Optional[str], Optional[str]]:
     text = text.lstrip("\u200e").strip()
-    ios_match = IOS_ATTACHMENT_RE.match(text)
-    if ios_match:
-        label = ios_match.group("label").strip().lstrip("\u200e").strip()
-        return label, ios_match.group("filename").strip(), "Anhang"
+    bracketed_match = BRACKETED_ATTACHMENT_RE.match(text)
+    if bracketed_match:
+        label = bracketed_match.group("label").strip().lstrip("\u200e").strip()
+        return label, bracketed_match.group("filename").strip(), "Anhang"
 
-    android_match = ANDROID_ATTACHMENT_RE.match(text)
-    if android_match:
+    plain_match = PLAIN_ATTACHMENT_RE.match(text)
+    if plain_match:
         return (
             "",
-            android_match.group("filename").strip(),
-            android_match.group("label").strip(),
+            plain_match.group("filename").strip(),
+            plain_match.group("label").strip(),
         )
 
     return text, None, None
@@ -127,10 +127,14 @@ def _infer_conversation_type(
 ) -> tuple[str, Optional[str], Optional[str]]:
     unique_senders = [sender for sender in sorted(set(senders)) if sender]
     partner = next((sender for sender in unique_senders if sender == title), None)
-    if partner and len(unique_senders) == 2:
+    if len(unique_senders) == 2:
         me = next((sender for sender in unique_senders if sender != partner), None)
-        return ("direct", partner, me)
+        return ("direct", partner, me if partner else None)
     return ("group" if len(unique_senders) > 2 else "unknown", partner, None)
+
+
+def _participant_id_for_sender(sender: str) -> str:
+    return f"whatsapp-participant:{safe_filename(sender, 60)}"
 
 
 def _build_participants(
@@ -148,7 +152,7 @@ def _build_participants(
             role = "chat_partner"
         participants.append(
             NormalizedParticipant(
-                participant_id=f"whatsapp-participant:{safe_filename(sender, 60)}",
+                participant_id=_participant_id_for_sender(sender),
                 display_name=sender,
                 identity=None,
                 role=role,
@@ -192,6 +196,9 @@ def normalize_whatsapp_conversation(
     participants = _build_participants(
         senders, conversation_type, chat_partner, me_sender
     )
+    self_participant_id = (
+        _participant_id_for_sender(me_sender) if me_sender else None
+    )
 
     sender_counts = Counter(senders)
     normalized_messages: list[NormalizedMessage] = []
@@ -201,7 +208,7 @@ def normalize_whatsapp_conversation(
         sender_id = None
         if message.sender:
             sender_display = message.sender
-            sender_id = f"whatsapp-participant:{safe_filename(message.sender, 60)}"
+            sender_id = _participant_id_for_sender(message.sender)
             if me_sender and message.sender == me_sender:
                 direction = "outgoing"
             elif me_sender:
@@ -268,6 +275,7 @@ def normalize_whatsapp_conversation(
         messages=normalized_messages,
         timezone=tz_name,
         time_mode="whatsapp_text",
+        self_participant_id=self_participant_id,
         metadata={
             "input_filename": export.zip_path.name,
             "chat_text_name": export.chat_text_name,

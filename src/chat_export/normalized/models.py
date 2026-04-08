@@ -70,4 +70,5 @@ class NormalizedConversation:
     messages: list[NormalizedMessage]
     timezone: str
     time_mode: str
+    self_participant_id: Optional[str] = None
     metadata: dict[str, Any] = field(default_factory=dict)
