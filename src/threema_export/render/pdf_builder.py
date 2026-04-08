@@ -134,13 +134,18 @@ def _build_image_preview_flowable(image_path: str) -> RLImage:
         if preview_width_px <= 0 or preview_height_px <= 0:
             raise ValueError("thumbnail generation produced invalid dimensions")
 
-        display_scale = min(
-            IMAGE_PREVIEW_MAX_WIDTH / preview_width_px,
-            IMAGE_PREVIEW_MAX_HEIGHT / preview_height_px,
-            1.0,
-        )
-        display_width = preview_width_px * display_scale
-        display_height = preview_height_px * display_scale
+        display_width = preview_width_px * 72.0 / IMAGE_PREVIEW_DPI
+        display_height = preview_height_px * 72.0 / IMAGE_PREVIEW_DPI
+        if (
+            display_width > IMAGE_PREVIEW_MAX_WIDTH
+            or display_height > IMAGE_PREVIEW_MAX_HEIGHT
+        ):
+            display_scale = min(
+                IMAGE_PREVIEW_MAX_WIDTH / display_width,
+                IMAGE_PREVIEW_MAX_HEIGHT / display_height,
+            )
+            display_width *= display_scale
+            display_height *= display_scale
 
         preview_buffer = BytesIO()
         if image.mode in ("RGBA", "LA") or (
@@ -340,7 +345,13 @@ def _build_doc(
                 try:
                     story.append(_build_image_preview_flowable(attachment.absolute_path))
                     story.append(Spacer(1, 6))
-                except (FileNotFoundError, OSError, UnidentifiedImageError, ValueError) as exc:
+                except (
+                    FileNotFoundError,
+                    OSError,
+                    UnidentifiedImageError,
+                    ValueError,
+                    PILImage.DecompressionBombError,
+                ) as exc:
                     log.warning(
                         "Image preview failed for %s in conversation=%s message=%s: %s",
                         attachment.absolute_path,
