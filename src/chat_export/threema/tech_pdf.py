@@ -1,3 +1,10 @@
+"""Build the Threema-specific TECH PDF report.
+
+This module renders the detailed Threema TECH report from importer-side models
+and raw metadata. It is source-specific and independent from the generic PDF
+builder used for normalized conversations.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -23,6 +30,22 @@ log = logging.getLogger(__name__)
 
 @dataclass(slots=True)
 class ThreemaTechnicalConversation:
+    """Store Threema-specific TECH report input data.
+
+    Attributes:
+        conv (Conversation): Threema conversation model.
+        chat_title (str): Render title.
+        contacts (Dict[int, Contact]): Contacts indexed by primary key.
+        groupinfo (Optional[GroupInfo]): Group metadata model.
+        members (List[int]): Group member contact primary keys.
+        messages (List[Message]): Conversation messages.
+        media_index (Dict[int, List[Dict[str, Any]]]): Media export records by message primary key.
+        reactions_by_message (Dict[int, List[Dict[str, Any]]]): Raw reactions by message primary key.
+        history_by_message (Dict[int, List[Dict[str, Any]]]): Raw edit history by message primary key.
+        time_mode (str): Source timestamp mode label.
+        tz_name (str): IANA timezone name.
+    """
+
     conv: Conversation
     chat_title: str
     contacts: Dict[int, Contact]
@@ -37,6 +60,12 @@ class ThreemaTechnicalConversation:
 
 
 def exporter_version() -> str:
+    """Return the installed exporter package version.
+
+    Returns:
+        str: Installed package version, ``dev`` for editable local runs, or
+        ``unknown`` on unexpected lookup errors.
+    """
     try:
         return pkg_version("chat-export-pdf")
     except PackageNotFoundError:
@@ -46,6 +75,14 @@ def exporter_version() -> str:
 
 
 def conv_type(conv: Conversation) -> str:
+    """Resolve a compact TECH conversation type label.
+
+    Args:
+        conv (Conversation): Threema conversation model.
+
+    Returns:
+        str: ``GROUP``, ``DIRECT``, or ``UNKNOWN``.
+    """
     if conv.group_id_hex:
         return "GROUP"
     if conv.contact_pk:
@@ -54,6 +91,16 @@ def conv_type(conv: Conversation) -> str:
 
 
 def determine_sender(msg: Message, conv: Conversation, contacts: Dict[int, Contact]) -> str:
+    """Resolve the sender display name for one Threema message.
+
+    Args:
+        msg (Message): Threema message model.
+        conv (Conversation): Parent conversation model.
+        contacts (Dict[int, Contact]): Contacts indexed by primary key.
+
+    Returns:
+        str: Sender display name or fallback label.
+    """
     if msg.is_own == 1:
         return "Me"
     if msg.sender_pk is not None and int(msg.sender_pk) in contacts:
@@ -64,6 +111,16 @@ def determine_sender(msg: Message, conv: Conversation, contacts: Dict[int, Conta
 
 
 def conv_date_range(messages: List[Message], time_mode: str, tz_name: str) -> Tuple[str, str]:
+    """Resolve the first and last message timestamps for a conversation.
+
+    Args:
+        messages (List[Message]): Conversation messages.
+        time_mode (str): Source timestamp mode label.
+        tz_name (str): IANA timezone name.
+
+    Returns:
+        Tuple[str, str]: Start and end timestamps.
+    """
     if not messages:
         return ("NULL", "NULL")
     return (
@@ -73,6 +130,14 @@ def conv_date_range(messages: List[Message], time_mode: str, tz_name: str) -> Tu
 
 
 def build_zid_index(messages: List[Message]) -> Dict[str, Message]:
+    """Index Threema messages by ZID hex string.
+
+    Args:
+        messages (List[Message]): Conversation messages.
+
+    Returns:
+        Dict[str, Message]: Messages keyed by ZID hex string.
+    """
     idx: Dict[str, Message] = {}
     for message in messages:
         if message.zid:
@@ -88,6 +153,19 @@ def quote_summary(
     conv: Conversation,
     contacts: Dict[int, Contact],
 ) -> Optional[str]:
+    """Build a short quoted-message summary string.
+
+    Args:
+        msg (Message): Threema message model.
+        zid_index (Dict[str, Message]): Message index keyed by ZID hex string.
+        time_mode (str): Source timestamp mode label.
+        tz_name (str): IANA timezone name.
+        conv (Conversation): Parent conversation model.
+        contacts (Dict[int, Contact]): Contacts indexed by primary key.
+
+    Returns:
+        Optional[str]: Quoted summary text or ``None``.
+    """
     if not msg.quoted_message_id:
         return None
 
@@ -110,6 +188,15 @@ def compute_case_summary(
     messages: List[Message],
     media_index: Dict[int, List[Dict[str, Any]]],
 ) -> Dict[str, int]:
+    """Compute aggregate message and attachment counts.
+
+    Args:
+        messages (List[Message]): Conversation messages.
+        media_index (Dict[int, List[Dict[str, Any]]]): Media export records by message primary key.
+
+    Returns:
+        Dict[str, int]: Summary counts keyed by message or attachment type.
+    """
     counts = {
         "messages": len(messages),
         "system": 0,
@@ -144,6 +231,17 @@ def participant_rows(
     contacts: Dict[int, Contact],
     member_pks: List[int],
 ) -> List[Dict[str, str]]:
+    """Build participant rows for the TECH participant tables.
+
+    Args:
+        conv (Conversation): Threema conversation model.
+        groupinfo (Optional[GroupInfo]): Group metadata model.
+        contacts (Dict[int, Contact]): Contacts indexed by primary key.
+        member_pks (List[int]): Group member contact primary keys.
+
+    Returns:
+        List[Dict[str, str]]: Participant rows with role, display, and identity.
+    """
     creator_id = groupinfo.creator if groupinfo else None
     my_id = conv.group_my_identity if conv.group_id_hex else None
 
@@ -184,6 +282,14 @@ def participant_rows(
 
 
 def fmt_bool(value: Any) -> str:
+    """Format a nullable boolean-like value for TECH output.
+
+    Args:
+        value (Any): Input value.
+
+    Returns:
+        str: ``yes``, ``no``, ``NULL``, or fallback string.
+    """
     if value is None:
         return "NULL"
     try:
@@ -193,6 +299,16 @@ def fmt_bool(value: Any) -> str:
 
 
 def contact_detail_kv(contact: Contact, time_mode: str, tz_name: str) -> List[Tuple[str, str]]:
+    """Build detailed key-value rows for one Threema contact.
+
+    Args:
+        contact (Contact): Threema contact model.
+        time_mode (str): Source timestamp mode label.
+        tz_name (str): IANA timezone name.
+
+    Returns:
+        List[Tuple[str, str]]: Contact detail rows for table rendering.
+    """
     return [
         ("ContactPK", str(contact.pk)),
         ("ThreemaID", contact.identity or "NULL"),
@@ -246,6 +362,12 @@ def contact_detail_kv(contact: Contact, time_mode: str, tz_name: str) -> List[Tu
 
 
 def build_threema_tech_pdf(tech: ThreemaTechnicalConversation, pdf_path: str) -> None:
+    """Write one Threema TECH PDF file.
+
+    Args:
+        tech (ThreemaTechnicalConversation): TECH report input bundle.
+        pdf_path (str): Output PDF file path.
+    """
     styles = build_styles()
     normal = styles["normal"]
     h1 = styles["h1"]

@@ -1,3 +1,9 @@
+"""Read raw WhatsApp ZIP exports.
+
+This module selects the chat text file from a ZIP export, loads the raw text,
+and exposes ZIP attachment members for later extraction and normalization.
+"""
+
 from __future__ import annotations
 
 import re
@@ -9,12 +15,28 @@ from typing import Iterable
 
 @dataclass(slots=True)
 class WhatsAppZipAttachment:
+    """Store one ZIP attachment member reference.
+
+    Attributes:
+        name (str): ZIP member path.
+        size (int): ZIP member size in bytes.
+    """
+
     name: str
     size: int
 
 
 @dataclass(slots=True)
 class WhatsAppZipExport:
+    """Store loaded WhatsApp ZIP export data.
+
+    Attributes:
+        zip_path (Path): ZIP file path.
+        chat_text_name (str): Selected chat text member name.
+        chat_text (str): Decoded chat text content.
+        attachments (dict[str, WhatsAppZipAttachment]): Attachment members by filename.
+    """
+
     zip_path: Path
     chat_text_name: str
     chat_text: str
@@ -27,6 +49,14 @@ MESSAGE_HINT_RE = re.compile(
 
 
 def _score_chat_text(text: str) -> tuple[int, int]:
+    """Score one text file for WhatsApp chat-likeness.
+
+    Args:
+        text (str): Decoded text file content.
+
+    Returns:
+        tuple[int, int]: Matched message-line count and total line count.
+    """
     lines = text.splitlines()
     matched = sum(1 for line in lines if MESSAGE_HINT_RE.match(line))
     return matched, len(lines)
@@ -37,6 +67,19 @@ def load_whatsapp_zip(
     *,
     chat_text_name: str | None = None,
 ) -> WhatsAppZipExport:
+    """Load a WhatsApp ZIP export and select the chat text file.
+
+    Args:
+        zip_path (str): ZIP file path.
+        chat_text_name (str | None): Explicit chat text member name.
+
+    Returns:
+        WhatsAppZipExport: Loaded ZIP export data.
+
+    Raises:
+        ValueError: If no chat text exists, multiple plausible chat texts exist,
+            or the requested text member is missing.
+    """
     archive_path = Path(zip_path)
     with zipfile.ZipFile(archive_path) as archive:
         names = archive.namelist()
@@ -95,4 +138,12 @@ def load_whatsapp_zip(
 
 
 def iter_attachment_names(export: WhatsAppZipExport) -> Iterable[str]:
+    """Iterate normalized attachment filenames from a loaded ZIP export.
+
+    Args:
+        export (WhatsAppZipExport): Loaded ZIP export data.
+
+    Returns:
+        Iterable[str]: Attachment filenames.
+    """
     return export.attachments.keys()

@@ -1,3 +1,10 @@
+"""Load Threema SQLite data and normalize it for export.
+
+This module reads Threema conversations, messages, reactions, edit history,
+and media references from the source database. It then normalizes the data and
+builds the Threema-specific TECH payload.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -27,9 +34,20 @@ log = logging.getLogger(__name__)
 
 
 class ThreemaImporter:
+    """Implement the importer contract for Threema SQLite exports."""
+
     source_app = "threema"
 
     def load_conversations(self, cfg: ExportConfig) -> ImportRun:
+        """Load and normalize all selected Threema conversations.
+
+        Args:
+            cfg (ExportConfig): Export configuration.
+
+        Returns:
+            ImportRun: Import result with normalized conversations and Threema
+            TECH payloads.
+        """
         conn = connect_db(cfg.resolved_input_path())
         try:
             time_mode = auto_detect_time_mode(conn)

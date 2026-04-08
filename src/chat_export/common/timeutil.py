@@ -1,3 +1,10 @@
+"""Convert and format source timestamps.
+
+This module converts raw timestamp values from supported source formats into
+UNIX seconds and formatted strings. It also auto-detects the Threema timestamp
+mode from database samples.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -12,6 +19,8 @@ COCOA_OFFSET = 978307200
 
 
 class TimeMode:
+    """Define supported raw timestamp modes."""
+
     UNIX_S = "unix_s"
     UNIX_MS = "unix_ms"
     COCOA_S = "cocoa_s"
@@ -19,6 +28,15 @@ class TimeMode:
 
 
 def _to_timestamp_seconds(val: Any, mode: str) -> Optional[float]:
+    """Convert one raw timestamp value to UNIX seconds.
+
+    Args:
+        val (Any): Raw timestamp value.
+        mode (str): Timestamp mode label.
+
+    Returns:
+        Optional[float]: UNIX timestamp in seconds or ``None``.
+    """
     if val is None:
         return None
     try:
@@ -41,6 +59,14 @@ def _to_timestamp_seconds(val: Any, mode: str) -> Optional[float]:
 
 
 def auto_detect_time_mode(conn) -> str:
+    """Detect the most plausible Threema timestamp mode.
+
+    Args:
+        conn: Open SQLite connection.
+
+    Returns:
+        str: Detected timestamp mode label.
+    """
     cur = conn.cursor()
     cur.execute("SELECT ZDATE FROM ZMESSAGE WHERE ZDATE IS NOT NULL ORDER BY ZDATE DESC LIMIT 50;")
     vals = [r[0] for r in cur.fetchall()]
@@ -71,6 +97,17 @@ def auto_detect_time_mode(conn) -> str:
 
 
 def format_dt(val: Any, mode: str, tz_name: str, null_if_early_year: int = 2005) -> str:
+    """Format one raw timestamp value as render text.
+
+    Args:
+        val (Any): Raw timestamp value.
+        mode (str): Timestamp mode label.
+        tz_name (str): IANA timezone name.
+        null_if_early_year (int): Minimum accepted year.
+
+    Returns:
+        str: Formatted timestamp string or ``NULL``.
+    """
     ts = _to_timestamp_seconds(val, mode)
     if ts is None:
         return "NULL"
@@ -85,6 +122,16 @@ def format_dt(val: Any, mode: str, tz_name: str, null_if_early_year: int = 2005)
 
 
 def dt_compact(val: Any, mode: str, tz_name: str) -> str:
+    """Format one raw timestamp value as a compact filename-safe string.
+
+    Args:
+        val (Any): Raw timestamp value.
+        mode (str): Timestamp mode label.
+        tz_name (str): IANA timezone name.
+
+    Returns:
+        str: Compact timestamp string or ``NULL``.
+    """
     ts = _to_timestamp_seconds(val, mode)
     if ts is None:
         return "NULL"

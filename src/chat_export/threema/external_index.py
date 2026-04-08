@@ -1,3 +1,10 @@
+"""Resolve Threema external media pointer payloads.
+
+This module indexes `_EXTERNAL_DATA` files by UUID, parses pointer blobs from
+database media payloads, and resolves them to external file content when
+available.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -13,6 +20,14 @@ UUID_RE = re.compile(
 
 
 def build_external_index(external_folder: Optional[str]) -> Dict[str, str]:
+    """Index external data files by UUID.
+
+    Args:
+        external_folder (Optional[str]): Root `_EXTERNAL_DATA` directory.
+
+    Returns:
+        Dict[str, str]: Absolute file paths keyed by lowercase UUID.
+    """
     idx: Dict[str, str] = {}
     if not external_folder:
         log.info("External folder not set -> external index disabled.")
@@ -43,6 +58,15 @@ def build_external_index(external_folder: Optional[str]) -> Dict[str, str]:
 
 
 def parse_external_pointer(blob: bytes) -> Optional[str]:
+    """Parse a Threema external pointer blob.
+
+    Args:
+        blob (bytes): Raw blob payload.
+
+    Returns:
+        Optional[str]: UUID string if the blob is a valid pointer. Otherwise
+        ``None``.
+    """
     if not blob or len(blob) < 10 or blob[0] != 0x02:
         return None
     payload = blob[1:-1] if blob.endswith(b"\x00") else blob[1:]
@@ -56,6 +80,16 @@ def parse_external_pointer(blob: bytes) -> Optional[str]:
 def resolve_pointer_if_needed(
     blob: bytes, external_index: Dict[str, str]
 ) -> Tuple[bytes, Optional[str], Optional[str]]:
+    """Resolve external pointer payloads to file content.
+
+    Args:
+        blob (bytes): Raw blob payload.
+        external_index (Dict[str, str]): External data index keyed by UUID.
+
+    Returns:
+        Tuple[bytes, Optional[str], Optional[str]]: Resolved payload bytes,
+        parsed UUID, and resolved absolute file path.
+    """
     uuid = parse_external_pointer(blob)
     if not uuid:
         return blob, None, None

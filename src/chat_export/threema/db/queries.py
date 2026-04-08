@@ -1,3 +1,10 @@
+"""Load Threema source models from the SQLite database.
+
+This module contains read-only query helpers for the Threema importer. It maps
+database rows to importer-side models and returns raw reaction and edit rows
+for later normalization.
+"""
+
 from __future__ import annotations
 
 import sqlite3
@@ -9,6 +16,14 @@ from .schema import row_get, table_columns
 
 
 def load_contacts(conn: sqlite3.Connection) -> Dict[int, Contact]:
+    """Load Threema contacts from ``ZCONTACT``.
+
+    Args:
+        conn (sqlite3.Connection): Open SQLite connection.
+
+    Returns:
+        Dict[int, Contact]: Contacts indexed by contact primary key.
+    """
     cur = conn.cursor()
     cur.execute(
         """
@@ -58,6 +73,14 @@ def load_contacts(conn: sqlite3.Connection) -> Dict[int, Contact]:
 
 
 def load_groups(conn: sqlite3.Connection) -> Dict[str, GroupInfo]:
+    """Load Threema groups from ``ZGROUP``.
+
+    Args:
+        conn (sqlite3.Connection): Open SQLite connection.
+
+    Returns:
+        Dict[str, GroupInfo]: Groups indexed by group id hex string.
+    """
     cur = conn.cursor()
     cur.execute("SELECT Z_PK, ZGROUPID, ZGROUPCREATOR, ZSTATE, ZLASTPERIODICSYNC FROM ZGROUP;")
     out: Dict[str, GroupInfo] = {}
@@ -75,6 +98,14 @@ def load_groups(conn: sqlite3.Connection) -> Dict[str, GroupInfo]:
 
 
 def load_conversations(conn: sqlite3.Connection) -> List[Conversation]:
+    """Load Threema conversations from ``ZCONVERSATION``.
+
+    Args:
+        conn (sqlite3.Connection): Open SQLite connection.
+
+    Returns:
+        List[Conversation]: Conversations in primary-key order.
+    """
     cur = conn.cursor()
     cur.execute(
         """
@@ -104,6 +135,15 @@ def load_conversations(conn: sqlite3.Connection) -> List[Conversation]:
 
 
 def load_group_members(conn: sqlite3.Connection) -> Dict[int, List[int]]:
+    """Load Threema group member mappings.
+
+    Args:
+        conn (sqlite3.Connection): Open SQLite connection.
+
+    Returns:
+        Dict[int, List[int]]: Conversation primary keys mapped to member contact
+        primary keys.
+    """
     cur = conn.cursor()
     m: Dict[int, List[int]] = {}
     cur.execute("SELECT Z_6MEMBERS, Z_7GROUPCONVERSATIONS FROM Z_6GROUPCONVERSATIONS;")
@@ -115,6 +155,15 @@ def load_group_members(conn: sqlite3.Connection) -> Dict[int, List[int]]:
 
 
 def load_messages_for_conversation(conn: sqlite3.Connection, conv_pk: int) -> List[Message]:
+    """Load Threema messages for one conversation.
+
+    Args:
+        conn (sqlite3.Connection): Open SQLite connection.
+        conv_pk (int): Conversation primary key.
+
+    Returns:
+        List[Message]: Messages in chronological order.
+    """
     cols = table_columns(conn, "ZMESSAGE")
     wanted = [
         "Z_PK","Z_ENT","ZCONVERSATION","ZSENDER","ZISOWN",
@@ -188,6 +237,15 @@ def load_messages_for_conversation(conn: sqlite3.Connection, conv_pk: int) -> Li
 
 
 def load_reactions(conn: sqlite3.Connection, msg_pk: int) -> List[sqlite3.Row]:
+    """Load raw reaction rows for one message.
+
+    Args:
+        conn (sqlite3.Connection): Open SQLite connection.
+        msg_pk (int): Message primary key.
+
+    Returns:
+        List[sqlite3.Row]: Reaction rows in timestamp order.
+    """
     cur = conn.cursor()
     cur.execute(
         """
@@ -202,6 +260,15 @@ def load_reactions(conn: sqlite3.Connection, msg_pk: int) -> List[sqlite3.Row]:
 
 
 def load_history(conn: sqlite3.Connection, msg_pk: int) -> List[sqlite3.Row]:
+    """Load raw edit history rows for one message.
+
+    Args:
+        conn (sqlite3.Connection): Open SQLite connection.
+        msg_pk (int): Message primary key.
+
+    Returns:
+        List[sqlite3.Row]: Edit history rows in timestamp order.
+    """
     cur = conn.cursor()
     cur.execute(
         """

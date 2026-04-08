@@ -1,3 +1,10 @@
+"""Normalize WhatsApp ZIP exports into shared export models.
+
+This module parses WhatsApp text exports into intermediate message records and
+maps them plus extracted media into the normalized conversation model used by
+the generic renderers.
+"""
+
 from __future__ import annotations
 
 import mimetypes
@@ -31,6 +38,17 @@ BRACKETED_ATTACHMENT_RE = re.compile(
 
 @dataclass(slots=True)
 class ParsedWhatsAppMessage:
+    """Store one parsed WhatsApp text-export message.
+
+    Attributes:
+        timestamp (str): Render-ready message timestamp.
+        sender (Optional[str]): Parsed sender display name.
+        text (str): Parsed message text without attachment marker syntax.
+        raw_text (str): Original raw text line block.
+        attachment_name (Optional[str]): Attachment filename from the export text.
+        metadata (dict[str, object]): Parser metadata.
+    """
+
     timestamp: str
     sender: Optional[str]
     text: str
@@ -40,6 +58,14 @@ class ParsedWhatsAppMessage:
 
 
 def _normalize_title(raw_stem: str) -> str:
+    """Normalize a WhatsApp ZIP filename stem to a chat title.
+
+    Args:
+        raw_stem (str): ZIP filename stem.
+
+    Returns:
+        str: Normalized chat title.
+    """
     if raw_stem.startswith("WhatsApp-Chat mit "):
         return raw_stem.removeprefix("WhatsApp-Chat mit ").strip()
     if raw_stem.startswith("WhatsApp Chat - "):
@@ -48,6 +74,16 @@ def _normalize_title(raw_stem: str) -> str:
 
 
 def _parse_timestamp(date_part: str, time_part: str, tz_name: str) -> str:
+    """Parse a WhatsApp export timestamp string.
+
+    Args:
+        date_part (str): Date string in export format.
+        time_part (str): Time string in export format.
+        tz_name (str): IANA timezone name.
+
+    Returns:
+        str: Render-ready timestamp string.
+    """
     fmt = "%d.%m.%y, %H:%M:%S" if len(time_part) == 8 else "%d.%m.%y, %H:%M"
     dt = datetime.strptime(f"{date_part}, {time_part}", fmt)
     dt = dt.replace(tzinfo=ZoneInfo(tz_name))
@@ -55,6 +91,14 @@ def _parse_timestamp(date_part: str, time_part: str, tz_name: str) -> str:
 
 
 def _match_message_start(raw_line: str):
+    """Match one export line against supported WhatsApp message prefixes.
+
+    Args:
+        raw_line (str): Raw chat-export line.
+
+    Returns:
+        re.Match[str] | None: Regex match object or ``None``.
+    """
     for pattern in (BRACKETED_MESSAGE_RE, PLAIN_MESSAGE_RE):
         match = pattern.match(raw_line)
         if match:
@@ -63,6 +107,15 @@ def _match_message_start(raw_line: str):
 
 
 def _extract_attachment(text: str) -> tuple[str, Optional[str], Optional[str]]:
+    """Extract attachment data from one WhatsApp message body.
+
+    Args:
+        text (str): Parsed message body.
+
+    Returns:
+        tuple[str, Optional[str], Optional[str]]: Cleaned text, attachment
+        filename, and attachment label.
+    """
     text = text.lstrip("\u200e").strip()
     bracketed_match = BRACKETED_ATTACHMENT_RE.match(text)
     if bracketed_match:
@@ -81,6 +134,15 @@ def _extract_attachment(text: str) -> tuple[str, Optional[str], Optional[str]]:
 
 
 def parse_chat_messages(chat_text: str, tz_name: str) -> list[ParsedWhatsAppMessage]:
+    """Parse a WhatsApp chat text file into intermediate message records.
+
+    Args:
+        chat_text (str): Full chat-export text.
+        tz_name (str): IANA timezone name.
+
+    Returns:
+        list[ParsedWhatsAppMessage]: Parsed messages in source order.
+    """
     messages: list[ParsedWhatsAppMessage] = []
     current: ParsedWhatsAppMessage | None = None
 
@@ -125,6 +187,16 @@ def _infer_conversation_type(
     title: str,
     senders: list[str],
 ) -> tuple[str, Optional[str], Optional[str]]:
+    """Infer conversation type and role candidates from sender names.
+
+    Args:
+        title (str): Normalized chat title.
+        senders (list[str]): Sender display names from parsed messages.
+
+    Returns:
+        tuple[str, Optional[str], Optional[str]]: Conversation type, direct-chat
+        partner name, and self sender name.
+    """
     unique_senders = [sender for sender in sorted(set(senders)) if sender]
     partner = next((sender for sender in unique_senders if sender == title), None)
     if len(unique_senders) == 2:
@@ -134,6 +206,14 @@ def _infer_conversation_type(
 
 
 def _participant_id_for_sender(sender: str) -> str:
+    """Build a normalized participant id for one sender name.
+
+    Args:
+        sender (str): Sender display name.
+
+    Returns:
+        str: Normalized participant id.
+    """
     return f"whatsapp-participant:{safe_filename(sender, 60)}"
 
 
@@ -143,6 +223,17 @@ def _build_participants(
     chat_partner: Optional[str],
     me_sender: Optional[str],
 ) -> list[NormalizedParticipant]:
+    """Build normalized participants from parsed sender names.
+
+    Args:
+        senders (list[str]): Sender display names.
+        conversation_type (str): Inferred conversation type.
+        chat_partner (Optional[str]): Direct-chat partner name.
+        me_sender (Optional[str]): Inferred self sender name.
+
+    Returns:
+        list[NormalizedParticipant]: Normalized participants.
+    """
     participants: list[NormalizedParticipant] = []
     for sender in sorted(set(senders)):
         role = "member"
@@ -163,6 +254,14 @@ def _build_participants(
 
 
 def _guess_attachment_kind(filename: str) -> str:
+    """Guess a normalized attachment type from a filename.
+
+    Args:
+        filename (str): Attachment filename.
+
+    Returns:
+        str: Attachment type label.
+    """
     mime_type, _ = mimetypes.guess_type(filename)
     if mime_type:
         if mime_type.startswith("image/"):
@@ -175,6 +274,14 @@ def _guess_attachment_kind(filename: str) -> str:
 
 
 def _normalized_message_text(message: ParsedWhatsAppMessage) -> Optional[str]:
+    """Resolve normalized text content for one parsed message.
+
+    Args:
+        message (ParsedWhatsAppMessage): Parsed message.
+
+    Returns:
+        Optional[str]: Normalized message text or ``None``.
+    """
     if not message.attachment_name:
         return message.text
     if not message.text:
@@ -188,6 +295,17 @@ def normalize_whatsapp_conversation(
     tz_name: str,
     media_lookup: dict[str, dict[str, object]],
 ) -> NormalizedConversation:
+    """Convert one WhatsApp ZIP export to the normalized export model.
+
+    Args:
+        export (WhatsAppZipExport): ZIP-level export data.
+        parsed_messages (list[ParsedWhatsAppMessage]): Parsed chat messages.
+        tz_name (str): IANA timezone name.
+        media_lookup (dict[str, dict[str, object]]): Extracted media records by filename.
+
+    Returns:
+        NormalizedConversation: Normalized conversation record.
+    """
     title = _normalize_title(export.zip_path.stem)
     senders = [message.sender for message in parsed_messages if message.sender]
     conversation_type, chat_partner, me_sender = _infer_conversation_type(
