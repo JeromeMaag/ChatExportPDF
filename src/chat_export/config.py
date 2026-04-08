@@ -1,3 +1,10 @@
+"""Define validated export configuration objects.
+
+This module contains the immutable runtime configuration used by importers,
+renderers, and the orchestrator. It also validates input paths and creates
+the top-level output directory.
+"""
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -5,6 +12,25 @@ from typing import Optional
 
 @dataclass(frozen=True)
 class ExportConfig:
+    """Store one export run configuration.
+
+    Attributes:
+        out_dir (str): Base output directory path.
+        source_app (str): Importer key. Example: ``threema`` or ``whatsapp``.
+        input_path (Optional[str]): Generic source input path.
+        db_path (Optional[str]): Threema SQLite database path.
+        chat_text_name (Optional[str]): Explicit WhatsApp chat text file name.
+        external_folder (Optional[str]): Threema external media directory path.
+        tz_name (str): IANA timezone name for rendered timestamps.
+        export_media (bool): Enable attachment export.
+        export_image_previews (bool): Enable inline image previews in the normal PDF.
+        max_media_bytes (int): Maximum exported media size in bytes. ``0`` disables the limit.
+        limit_conversations (int): Maximum number of exported conversations. ``0`` disables the limit.
+        limit_messages (int): Maximum number of exported messages per conversation. ``0`` disables the limit.
+        log_level (str): Logging level name.
+        log_file (Optional[str]): Optional log file path.
+    """
+
     out_dir: str
     source_app: str = "threema"
     input_path: Optional[str] = None
@@ -24,6 +50,14 @@ class ExportConfig:
     log_file: Optional[str] = None
 
     def resolved_input_path(self) -> str:
+        """Return the effective source input file path.
+
+        Returns:
+            str: Resolved input file path from ``input_path`` or ``db_path``.
+
+        Raises:
+            ValueError: If no valid input path is configured.
+        """
         path = self.input_path or self.db_path
         if not path:
             raise ValueError(
@@ -33,6 +67,15 @@ class ExportConfig:
         return path
 
     def validate(self) -> None:
+        """Validate configuration paths and create the output directory.
+
+        Returns:
+            None: This method validates in place.
+
+        Raises:
+            ValueError: If ``source_app`` is empty.
+            FileNotFoundError: If the input file or external directory is missing.
+        """
         if not self.source_app or not self.source_app.strip():
             raise ValueError("source_app must not be empty")
         out = Path(self.out_dir)
