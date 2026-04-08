@@ -37,14 +37,12 @@ class ThreemaTechnicalConversation:
 
 
 def exporter_version() -> str:
-    for package_name in ("chat-export-pdf", "threema-chat-export"):
-        try:
-            return pkg_version(package_name)
-        except PackageNotFoundError:
-            continue
-        except Exception:
-            return "unknown"
-    return "dev"
+    try:
+        return pkg_version("chat-export-pdf")
+    except PackageNotFoundError:
+        return "dev"
+    except Exception:
+        return "unknown"
 
 
 def conv_type(conv: Conversation) -> str:
