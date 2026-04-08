@@ -578,13 +578,18 @@ def _build_doc(
             return
 
         bubble_rows: list[list[object]] = []
-        if conversation.conversation_type == "group":
-            header_bits = [f"<b>{esc_xml(message.sender_display)}</b>"]
-            if message.timestamp:
-                header_bits.append(esc_xml(message.timestamp))
-            bubble_rows.append([p(" - ".join(header_bits), bubble_header)])
-        elif message.timestamp:
-            bubble_rows.append([p(esc_xml(message.timestamp), bubble_header)])
+        header_bits = [f"<b>{esc_xml(message.sender_display)}</b>"]
+        if message.timestamp:
+            header_bits.append(esc_xml(message.timestamp))
+        bubble_rows.append([p(" - ".join(header_bits), bubble_header)])
+        bubble_rows.append(
+            [
+                p(
+                    f"Type: {esc_xml(message.message_type)} | Status: {esc_xml(message.status or 'unknown')}",
+                    bubble_aux,
+                )
+            ]
+        )
 
         if message.quoted_preview:
             quoted, _ = normalize_for_pdf(message.quoted_preview)
