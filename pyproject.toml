@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 license = {text = "Proprietary"}
 authors = [{name = "Jerome Maag" }]
 dependencies = [
+  "Pillow>=10.0.0",
   "reportlab>=4.0.0",
   "emoji>=2.0.0",
   "tzdata>=2023.3; platform_system=='Windows'",
