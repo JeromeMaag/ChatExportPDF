@@ -620,13 +620,10 @@ def _build_doc(
             bubble_rows.append([p("<i>Empty message</i>", bubble_aux)])
 
         story.append(
-            _aligned_block(
-                _bubble_table(
-                    bubble_rows,
-                    h_align="RIGHT" if alignment == "right" else "LEFT",
-                    background=CHAT_BUBBLE_RIGHT_BG if alignment == "right" else CHAT_BUBBLE_LEFT_BG,
-                ),
-                alignment=alignment,
+            _bubble_table(
+                bubble_rows,
+                h_align="RIGHT" if alignment == "right" else "LEFT",
+                background=CHAT_BUBBLE_RIGHT_BG if alignment == "right" else CHAT_BUBBLE_LEFT_BG,
             )
         )
         for attachment_link in attachment_links:
