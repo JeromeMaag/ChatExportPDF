@@ -1,4 +1,4 @@
-# Chat Export to PDF
+# ChatExportPDF
 
 This project exports chat data from different messenger sources into PDF reports.
 
@@ -68,7 +68,7 @@ Optional: use a virtual environment if you do not want to install the dependenci
 Recommended with external attachment folder:
 
 ```bash
-python -m threema_export --source threema --input-path "./ThreemaData.sqlite" --out-dir "./export" --external-folder "./_EXTERNAL_DATA"
+python -m chat_export --source threema --input-path "./ThreemaData.sqlite" --out-dir "./export" --external-folder "./_EXTERNAL_DATA"
 ```
 
 ### WhatsApp
@@ -76,15 +76,21 @@ python -m threema_export --source threema --input-path "./ThreemaData.sqlite" --
 WhatsApp export:
 
 ```bash
-python -m threema_export --source whatsapp --input-path "./WhatsApp-Chat mit Max Mustermann.zip" --out-dir "./export"
+python -m chat_export --source whatsapp --input-path "./WhatsApp-Chat mit Max Mustermann.zip" --out-dir "./export"
 ```
 
 
 WhatsApp ZIP with multiple plausible text files:
 
 ```bash
-python -m threema_export --source whatsapp --input-path "./WhatsApp Chat - Max Mustermann.zip" --chat-text-name "_chat.txt" --out-dir "./export"
+python -m chat_export --source whatsapp --input-path "./WhatsApp Chat - Max Mustermann.zip" --chat-text-name "_chat.txt" --out-dir "./export"
 ```
+
+The preferred entry points are:
+- `chat-export ...`
+- `python -m chat_export ...`
+
+For now, `threema-export` and `python -m threema_export ...` still work as compatibility entry points.
 
 ## Command Line Options
 

@@ -3,8 +3,8 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "threema-chat-export"
-version = "0.3.1"
+name = "chat-export-pdf"
+version = "0.4.0"
 description = "Export chat conversations from multiple sources to PDFs with optional media extraction"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,10 +19,11 @@ dependencies = [
 
 
 [project.scripts]
+chat-export = "threema_export.cli:main"
 threema-export = "threema_export.cli:main"
 
 [project.urls]
-Repository = "https://github.com/JeromeMaag/Threema-Chat-Export"
+Repository = "https://github.com/JeromeMaag/ChatExportPDF"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

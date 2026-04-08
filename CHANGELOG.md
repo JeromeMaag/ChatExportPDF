@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.0] - 2026-04-08
+### Changed
+- Renamed the project to `ChatExportPDF`.
+- Added `chat-export` and `python -m chat_export` as the preferred entry points.
+- Kept the previous entry points as compatibility aliases.
+
 ## [0.3.1] - 2026-04-08
 ### Added
 - Added inline image previews in the normal PDF export for image attachments.
