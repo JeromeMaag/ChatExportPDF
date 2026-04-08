@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.1] - 2026-04-08
+### Changed
+- Restored sender, timestamp, message type, and status in the normal chat bubble header.
+- Added synthetic Threema and WhatsApp example data plus a notebook to run local example exports.
+
 ## [0.5.0] - 2026-04-08
 ### Changed
 - Added chat-style message bubbles in the normal PDF export.
