@@ -90,8 +90,6 @@ The preferred entry points are:
 - `chat-export ...`
 - `python -m chat_export ...`
 
-For now, `threema-export` and `python -m threema_export ...` still work as compatibility entry points.
-
 ## Command Line Options
 
 ### Required

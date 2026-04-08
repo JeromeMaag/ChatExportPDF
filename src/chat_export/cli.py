@@ -82,7 +82,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     setup_logging(args.log_level, args.log_file)
-    log = logging.getLogger("threema_export")
+    log = logging.getLogger("chat_export")
     log.info("Starting export with config: %s", vars(args))
     if args.source == "threema" and not args.external_folder:
         log.warning("No --external-folder specified, media export may be incomplete")

@@ -19,8 +19,7 @@ dependencies = [
 
 
 [project.scripts]
-chat-export = "threema_export.cli:main"
-threema-export = "threema_export.cli:main"
+chat-export = "chat_export.cli:main"
 
 [project.urls]
 Repository = "https://github.com/JeromeMaag/ChatExportPDF"
@@ -30,3 +29,4 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["chat_export*"]
