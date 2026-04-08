@@ -25,7 +25,11 @@ from PIL import Image as PILImage, ImageOps, UnidentifiedImageError
 
 from ..common.textutil import esc_xml, normalize_for_pdf
 from ..common.util import relpath_for_link
-from ..normalized.models import NormalizedConversation, NormalizedMessage
+from ..normalized.models import (
+    NormalizedAttachment,
+    NormalizedConversation,
+    NormalizedMessage,
+)
 from .pdf_styles import build_styles
 
 log = logging.getLogger(__name__)
@@ -38,6 +42,13 @@ CHAT_SYSTEM_MAX_WIDTH = 94 * mm
 CHAT_BUBBLE_LEFT_BG = colors.HexColor("#F1F1F1")
 CHAT_BUBBLE_RIGHT_BG = colors.HexColor("#DCF8C6")
 CHAT_SYSTEM_BG = colors.HexColor("#E9E9E9")
+IMAGE_PREVIEW_EXCEPTIONS = (
+    FileNotFoundError,
+    OSError,
+    UnidentifiedImageError,
+    ValueError,
+    PILImage.DecompressionBombError,
+)
 
 
 def exporter_version() -> str:
@@ -257,6 +268,62 @@ def _build_doc(
                 parts.append(chunk)
         return parts or [normalized]
 
+    def _attachment_filename(attachment: NormalizedAttachment) -> str:
+        if attachment.filename:
+            return attachment.filename
+        if attachment.absolute_path:
+            return os.path.basename(attachment.absolute_path)
+        return "attachment"
+
+    def _attachment_link(
+        attachment: NormalizedAttachment,
+        *,
+        style=normal,
+    ) -> Paragraph | None:
+        if not attachment.absolute_path:
+            return None
+        return link(
+            f"Attachment ({attachment.kind}) [{_attachment_filename(attachment)}]",
+            rel(attachment.absolute_path),
+            style,
+        )
+
+    def _image_preview_or_none(
+        message: NormalizedMessage,
+        attachment: NormalizedAttachment,
+    ) -> RLImage | None:
+        if not (
+            include_image_previews
+            and attachment.kind == "image"
+            and attachment.absolute_path
+        ):
+            return None
+        try:
+            return _build_image_preview_flowable(attachment.absolute_path)
+        except IMAGE_PREVIEW_EXCEPTIONS as exc:
+            log.warning(
+                "Image preview failed for %s in conversation=%s message=%s: %s",
+                attachment.absolute_path,
+                conversation.conversation_id,
+                message.message_id,
+                exc,
+            )
+            return None
+
+    def _reaction_summary(message: NormalizedMessage) -> str | None:
+        if not message.reactions:
+            return None
+        parts = [
+            f"{reaction.reaction} by {reaction.creator_display}"
+            for reaction in message.reactions[:20]
+        ]
+        suffix = (
+            ""
+            if len(message.reactions) <= 20
+            else f" ...(+{len(message.reactions) - 20})"
+        )
+        return ", ".join(parts) + suffix
+
     def kv_table(rows: list[tuple[str, str]], *, col_widths=None, font_size=7.0):
         data = [[p("<b>Field</b>"), p("<b>Value</b>")]] + [
             [
@@ -390,38 +457,14 @@ def _build_doc(
             story.append(p(f"<i>Caption:</i> {esc_xml(caption_norm)}", normal))
 
         for attachment in message.attachments:
-            if not attachment.absolute_path:
+            attachment_link = _attachment_link(attachment, style=normal)
+            if attachment_link is None:
                 continue
-            filename = attachment.filename or os.path.basename(attachment.absolute_path)
-            story.append(
-                link(
-                    f"Attachment ({attachment.kind}) [{filename}]",
-                    rel(attachment.absolute_path),
-                    normal,
-                )
-            )
-            if (
-                include_image_previews
-                and attachment.kind == "image"
-                and attachment.absolute_path
-            ):
-                try:
-                    story.append(_build_image_preview_flowable(attachment.absolute_path))
-                    story.append(Spacer(1, 6))
-                except (
-                    FileNotFoundError,
-                    OSError,
-                    UnidentifiedImageError,
-                    ValueError,
-                    PILImage.DecompressionBombError,
-                ) as exc:
-                    log.warning(
-                        "Image preview failed for %s in conversation=%s message=%s: %s",
-                        attachment.absolute_path,
-                        conversation.conversation_id,
-                        message.message_id,
-                        exc,
-                    )
+            story.append(attachment_link)
+            preview = _image_preview_or_none(message, attachment)
+            if preview is not None:
+                story.append(preview)
+                story.append(Spacer(1, 6))
             if include_metadata_dump:
                 attachment_rows = [
                     ("attachment_id", attachment.attachment_id),
@@ -435,17 +478,9 @@ def _build_doc(
                 )
                 story.append(kv_table(attachment_rows, font_size=6.6))
 
-        if message.reactions:
-            parts = [
-                f"{reaction.reaction} by {reaction.creator_display}"
-                for reaction in message.reactions[:20]
-            ]
-            suffix = (
-                ""
-                if len(message.reactions) <= 20
-                else f" ...(+{len(message.reactions) - 20})"
-            )
-            story.append(p("Reactions: " + esc_xml(", ".join(parts) + suffix), normal))
+        reaction_summary = _reaction_summary(message)
+        if reaction_summary:
+            story.append(p("Reactions: " + esc_xml(reaction_summary), normal))
 
         if message.edits:
             story.append(p(f"Edited: yes ({len(message.edits)}x)", normal))
@@ -565,54 +600,16 @@ def _build_doc(
                 bubble_rows.append([p(f"<i>{esc_xml(chunk).replace('\n', '<br/>')}</i>", bubble_aux)])
 
         for attachment in message.attachments:
-            filename = attachment.filename or (
-                os.path.basename(attachment.absolute_path)
-                if attachment.absolute_path
-                else "attachment"
-            )
-            if (
-                include_image_previews
-                and attachment.kind == "image"
-                and attachment.absolute_path
-            ):
-                try:
-                    bubble_rows.append([_build_image_preview_flowable(attachment.absolute_path)])
-                except (
-                    FileNotFoundError,
-                    OSError,
-                    UnidentifiedImageError,
-                    ValueError,
-                    PILImage.DecompressionBombError,
-                ) as exc:
-                    log.warning(
-                        "Image preview failed for %s in conversation=%s message=%s: %s",
-                        attachment.absolute_path,
-                        conversation.conversation_id,
-                        message.message_id,
-                        exc,
-                    )
-            if attachment.absolute_path:
-                attachment_links.append(
-                    link(
-                        f"Attachment ({attachment.kind}) [{filename}]",
-                        rel(attachment.absolute_path),
-                        bubble_aux,
-                    )
-                )
+            preview = _image_preview_or_none(message, attachment)
+            if preview is not None:
+                bubble_rows.append([preview])
+            attachment_link = _attachment_link(attachment, style=bubble_aux)
+            if attachment_link is not None:
+                attachment_links.append(attachment_link)
 
-        if message.reactions:
-            parts = [
-                f"{reaction.reaction} by {reaction.creator_display}"
-                for reaction in message.reactions[:20]
-            ]
-            suffix = (
-                ""
-                if len(message.reactions) <= 20
-                else f" ...(+{len(message.reactions) - 20})"
-            )
-            bubble_rows.append(
-                [p("Reactions: " + esc_xml(", ".join(parts) + suffix), bubble_aux)]
-            )
+        reaction_summary = _reaction_summary(message)
+        if reaction_summary:
+            bubble_rows.append([p("Reactions: " + esc_xml(reaction_summary), bubble_aux)])
 
         if message.edits:
             bubble_rows.append([p(f"Edited: yes ({len(message.edits)}x)", bubble_aux)])
