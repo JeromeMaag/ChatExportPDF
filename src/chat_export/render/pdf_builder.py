@@ -524,9 +524,11 @@ def _build_doc(
     def _aligned_block(flowable: object, *, alignment: str) -> Table:
         if alignment == "right":
             data = [["", flowable]]
+            col_widths = [56 * mm, 118 * mm]
         else:
             data = [[flowable, ""]]
-        block = Table(data, colWidths=[56 * mm, 118 * mm])
+            col_widths = [118 * mm, 56 * mm]
+        block = Table(data, colWidths=col_widths)
         block.setStyle(
             TableStyle(
                 [
