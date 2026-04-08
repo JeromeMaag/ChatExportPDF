@@ -1,3 +1,9 @@
+"""Define the command-line entry points for chat exports.
+
+This module builds the argument parser, configures logging, maps CLI arguments
+to ``ExportConfig``, and starts the orchestration step.
+"""
+
 from __future__ import annotations
 import argparse
 import logging
@@ -9,6 +15,12 @@ from .orchestrator import export_all_conversations
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the top-level CLI argument parser.
+
+    Returns:
+        argparse.ArgumentParser: Configured parser for all supported export
+        options.
+    """
     p = argparse.ArgumentParser(
         description="Export chat data from supported apps to PDFs with media extraction."
     )
@@ -78,6 +90,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """Run the CLI entry point.
+
+    Args:
+        argv (Optional[list[str]]): Optional argument vector. ``None`` uses
+            ``sys.argv``.
+
+    Returns:
+        int: Process exit code. ``0`` indicates success. ``1`` indicates an
+        export failure.
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
 
