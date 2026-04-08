@@ -192,16 +192,30 @@ def normalize_edits(
     return out
 
 
+def determine_self_participant_id(
+    conv: Conversation,
+    messages: List[Message],
+) -> Optional[str]:
+    if conv.group_my_identity:
+        return f"threema-id:{conv.group_my_identity}"
+    if any(message.is_own == 1 for message in messages):
+        return "threema:self"
+    if not conv.group_id_hex:
+        return "threema:self"
+    return None
+
+
 def build_participants(
     conv: Conversation,
     contacts: Dict[int, Contact],
     groupinfo: Optional[GroupInfo],
     member_pks: List[int],
+    self_participant_id: Optional[str],
     time_mode: str,
     tz_name: str,
 ) -> List[NormalizedParticipant]:
     creator_id = groupinfo.creator if groupinfo else None
-    my_id = conv.group_my_identity if conv.group_id_hex else None
+    creator_participant_id = f"threema-id:{creator_id}" if creator_id else None
 
     participants: List[NormalizedParticipant] = []
     seen_ids: set[str] = set()
@@ -210,16 +224,16 @@ def build_participants(
         contact = contacts.get(pk)
         display = contact.display_name() if contact else f"Contact#{pk}"
         identity = contact.identity if contact else None
-        role = "member"
-        if my_id and identity == my_id:
-            role = "me"
-        if creator_id and identity == creator_id:
-            role = "admin"
         participant_id = (
             f"threema-id:{identity}"
             if identity
             else f"threema-contact:{pk}"
         )
+        role = "member"
+        if self_participant_id and participant_id == self_participant_id:
+            role = "me"
+        if creator_id and identity == creator_id:
+            role = "admin"
         participants.append(
             NormalizedParticipant(
                 participant_id=participant_id,
@@ -239,7 +253,7 @@ def build_participants(
                 },
             )
         )
-        seen_ids.add(identity or participant_id)
+        seen_ids.add(participant_id)
 
     if not conv.group_id_hex and conv.contact_pk and int(conv.contact_pk) in contacts:
         contact = contacts[int(conv.contact_pk)]
@@ -264,24 +278,30 @@ def build_participants(
             )
             seen_ids.add(participant_id)
 
-    if creator_id and creator_id not in seen_ids:
+    if creator_id and creator_participant_id not in seen_ids:
         participants.append(
             NormalizedParticipant(
-                participant_id=f"threema-id:{creator_id}",
+                participant_id=creator_participant_id,
                 display_name=creator_id,
                 identity=creator_id,
                 role="admin",
                 metadata={},
             )
         )
-        seen_ids.add(creator_id)
+        seen_ids.add(creator_participant_id)
 
-    if my_id and my_id not in seen_ids:
+    if self_participant_id and self_participant_id not in seen_ids:
+        identity = (
+            self_participant_id.removeprefix("threema-id:")
+            if self_participant_id.startswith("threema-id:")
+            else None
+        )
+        display_name = identity or "Me"
         participants.append(
             NormalizedParticipant(
-                participant_id=f"threema-id:{my_id}",
-                display_name=my_id,
-                identity=my_id,
+                participant_id=self_participant_id,
+                display_name=display_name,
+                identity=identity,
                 role="me",
                 metadata={},
             )
@@ -304,11 +324,13 @@ def normalize_threema_conversation(
 ) -> NormalizedConversation:
     chat_title = build_conversation_title(conv, contacts)
     zid_index = build_zid_index(messages)
+    self_participant_id = determine_self_participant_id(conv, messages)
     participants = build_participants(
         conv,
         contacts,
         groupinfo,
         member_pks,
+        self_participant_id,
         time_mode,
         tz_name,
     )
@@ -408,6 +430,7 @@ def normalize_threema_conversation(
         messages=normalized_messages,
         timezone=tz_name,
         time_mode=time_mode,
+        self_participant_id=self_participant_id,
         metadata={
             "threema_conversation_pk": conv.pk,
             "category": conv.category,
