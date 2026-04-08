@@ -46,6 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p.add_argument("--no-media", action="store_true", help="Disable media export")
     p.add_argument(
+        "--no-image-previews",
+        action="store_true",
+        help="Disable inline image previews in the normal PDF export",
+    )
+    p.add_argument(
         "--max-media-bytes",
         type=int,
         default=0,
@@ -83,6 +88,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         log.warning("No --external-folder specified, media export may be incomplete")
     if args.no_media:
         log.info("Media export disabled by --no-media flag")
+    if args.no_image_previews:
+        log.info("Inline image previews disabled by --no-image-previews flag")
     if args.max_media_bytes > 0:
         log.info("Will skip media blobs larger than %d bytes", args.max_media_bytes)
 
@@ -95,6 +102,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         external_folder=args.external_folder,
         tz_name=args.tz,
         export_media=not args.no_media,
+        export_image_previews=not args.no_image_previews,
         max_media_bytes=args.max_media_bytes,
         limit_conversations=args.limit_conversations,
         limit_messages=args.limit_messages,

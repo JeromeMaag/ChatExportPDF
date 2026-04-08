@@ -14,6 +14,7 @@ class ExportConfig:
     tz_name: str = "Europe/Zurich"
 
     export_media: bool = True
+    export_image_previews: bool = True
     max_media_bytes: int = 0
 
     limit_conversations: int = 0

@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.1] - 2026-04-08
+### Added
+- Added inline image previews in the normal PDF export for image attachments.
+- Added `--no-image-previews` to disable image previews when needed.
+
 ## [0.3.0] - 2026-04-07
 ### Added
 - Added WhatsApp ZIP import support.

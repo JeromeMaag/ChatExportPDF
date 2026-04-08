@@ -71,7 +71,11 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
             f"conv_{source_identifier}_{safe_title}_TECH.pdf",
         )
 
-        build_conversation_pdf(exported.conversation, pdf_path)
+        build_conversation_pdf(
+            exported.conversation,
+            pdf_path,
+            include_image_previews=cfg.export_image_previews,
+        )
         _build_tech_pdf(exported, pdf_tech_path)
 
         results["exported"].append(

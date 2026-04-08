@@ -4,13 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "threema-chat-export"
-version = "0.3.0"
+version = "0.3.1"
 description = "Export chat conversations from multiple sources to PDFs with optional media extraction"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
 authors = [{name = "Jerome Maag" }]
 dependencies = [
+  "Pillow>=10.0.0",
   "reportlab>=4.0.0",
   "emoji>=2.0.0",
   "tzdata>=2023.3; platform_system=='Windows'",

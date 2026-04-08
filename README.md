@@ -120,6 +120,9 @@ python -m threema_export --source whatsapp --input-path "./WhatsApp Chat - Max M
 - `--no-media`
   Disable attachment export. PDFs are still generated.
 
+- `--no-image-previews`
+  Disable inline image previews in the normal PDF export. By default, image previews are enabled when image attachments are available.
+
 - `--max-media-bytes N`
   Skip media blobs larger than `N` bytes. `0` disables the limit.
 

@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+from io import BytesIO
 from urllib.parse import quote
 
 from importlib.metadata import PackageNotFoundError, version as pkg_version
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
+from reportlab.platypus import Image as RLImage
 from reportlab.platypus import (
     PageBreak,
     Paragraph,
@@ -17,6 +19,7 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+from PIL import Image as PILImage, ImageOps, UnidentifiedImageError
 
 from ..common.textutil import esc_xml, normalize_for_pdf
 from ..common.util import relpath_for_link
@@ -24,6 +27,10 @@ from ..normalized.models import NormalizedConversation, NormalizedMessage
 from .pdf_styles import build_styles
 
 log = logging.getLogger(__name__)
+
+IMAGE_PREVIEW_MAX_WIDTH = 85 * mm
+IMAGE_PREVIEW_MAX_HEIGHT = 60 * mm
+IMAGE_PREVIEW_DPI = 144
 
 
 def exporter_version() -> str:
@@ -108,11 +115,60 @@ def _case_summary(conversation: NormalizedConversation) -> dict[str, int]:
     return counts
 
 
+def _image_preview_pixel_bounds() -> tuple[int, int]:
+    max_width_px = int((IMAGE_PREVIEW_MAX_WIDTH / 72.0) * IMAGE_PREVIEW_DPI)
+    max_height_px = int((IMAGE_PREVIEW_MAX_HEIGHT / 72.0) * IMAGE_PREVIEW_DPI)
+    return max_width_px, max_height_px
+
+
+def _build_image_preview_flowable(image_path: str) -> RLImage:
+    max_width_px, max_height_px = _image_preview_pixel_bounds()
+    with PILImage.open(image_path) as image:
+        image = ImageOps.exif_transpose(image)
+        original_width, original_height = image.size
+        if original_width <= 0 or original_height <= 0:
+            raise ValueError("image has invalid dimensions")
+
+        image.thumbnail((max_width_px, max_height_px), PILImage.Resampling.LANCZOS)
+        preview_width_px, preview_height_px = image.size
+        if preview_width_px <= 0 or preview_height_px <= 0:
+            raise ValueError("thumbnail generation produced invalid dimensions")
+
+        display_width = preview_width_px * 72.0 / IMAGE_PREVIEW_DPI
+        display_height = preview_height_px * 72.0 / IMAGE_PREVIEW_DPI
+        if (
+            display_width > IMAGE_PREVIEW_MAX_WIDTH
+            or display_height > IMAGE_PREVIEW_MAX_HEIGHT
+        ):
+            display_scale = min(
+                IMAGE_PREVIEW_MAX_WIDTH / display_width,
+                IMAGE_PREVIEW_MAX_HEIGHT / display_height,
+            )
+            display_width *= display_scale
+            display_height *= display_scale
+
+        preview_buffer = BytesIO()
+        if image.mode in ("RGBA", "LA") or (
+            image.mode == "P" and "transparency" in image.info
+        ):
+            image.save(preview_buffer, format="PNG")
+        else:
+            if image.mode not in ("RGB", "L"):
+                image = image.convert("RGB")
+            image.save(preview_buffer, format="JPEG", quality=85, optimize=True)
+        preview_buffer.seek(0)
+
+    preview = RLImage(preview_buffer, width=display_width, height=display_height)
+    preview.hAlign = "LEFT"
+    return preview
+
+
 def _build_doc(
     conversation: NormalizedConversation,
     pdf_path: str,
     *,
     include_metadata_dump: bool,
+    include_image_previews: bool,
 ) -> None:
     styles = build_styles()
     normal = styles["normal"]
@@ -281,6 +337,28 @@ def _build_doc(
                     normal,
                 )
             )
+            if (
+                include_image_previews
+                and attachment.kind == "image"
+                and attachment.absolute_path
+            ):
+                try:
+                    story.append(_build_image_preview_flowable(attachment.absolute_path))
+                    story.append(Spacer(1, 6))
+                except (
+                    FileNotFoundError,
+                    OSError,
+                    UnidentifiedImageError,
+                    ValueError,
+                    PILImage.DecompressionBombError,
+                ) as exc:
+                    log.warning(
+                        "Image preview failed for %s in conversation=%s message=%s: %s",
+                        attachment.absolute_path,
+                        conversation.conversation_id,
+                        message.message_id,
+                        exc,
+                    )
             if include_metadata_dump:
                 attachment_rows = [
                     ("attachment_id", attachment.attachment_id),
@@ -399,11 +477,26 @@ def _build_doc(
     doc.build(story)
 
 
-def build_conversation_pdf(conversation: NormalizedConversation, pdf_path: str) -> None:
-    _build_doc(conversation, pdf_path, include_metadata_dump=False)
+def build_conversation_pdf(
+    conversation: NormalizedConversation,
+    pdf_path: str,
+    *,
+    include_image_previews: bool = True,
+) -> None:
+    _build_doc(
+        conversation,
+        pdf_path,
+        include_metadata_dump=False,
+        include_image_previews=include_image_previews,
+    )
 
 
 def build_fallback_tech_pdf(
     conversation: NormalizedConversation, pdf_path: str
 ) -> None:
-    _build_doc(conversation, pdf_path, include_metadata_dump=True)
+    _build_doc(
+        conversation,
+        pdf_path,
+        include_metadata_dump=True,
+        include_image_previews=False,
+    )
