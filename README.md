@@ -3,7 +3,7 @@
 This project exports chat data from different messenger sources into PDF reports.
 
 Current sources:
-- `threema`
+- `threema` (iOS only)
 - `whatsapp`
 
 For each conversation, the exporter creates:
@@ -22,12 +22,19 @@ The main report is generic. The TECH report can be importer-specific. Threema ha
 Typical source:
 - iOS app container backup or extracted app data
 
+Typical iOS paths:
+- `/private/var/mobile/Containers/Shared/AppGroup/<AppID>/ThreemaData.sqlite`
+- `/private/var/mobile/Containers/Shared/AppGroup/<AppID>/.ThreemaData_SUPPORT/_EXTERNAL_DATA`
+
 ### WhatsApp
 
 - exported `.zip` file
 - the ZIP contains:
   - a chat text file
   - optional attachments with matching file names
+
+Typical source:
+- WhatsApp chat export ZIP created from the app itself
 
 Supported WhatsApp export variants:
 - Android-style chat text:
@@ -78,7 +85,6 @@ WhatsApp export:
 ```bash
 python -m chat_export --source whatsapp --input-path "./WhatsApp-Chat mit Max Mustermann.zip" --out-dir "./export"
 ```
-
 
 WhatsApp ZIP with multiple plausible text files:
 
@@ -134,7 +140,7 @@ The preferred entry points are:
   Process only the first `N` conversations. `0` means all.
 
 - `--limit-messages N`
-  Process only the first `N` messages per conversation. `0` means all.
+  Process only the first `N` messages per conversation. `0` means all messages.
 
 - `--log-level LEVEL`
   Logging verbosity. Allowed values: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
