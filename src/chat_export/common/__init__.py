@@ -1,3 +1,5 @@
+"""Re-export common helpers used across importers and renderers."""
+
 from .logging_setup import setup_logging
 from .textutil import demojize_text, esc_xml, normalize_for_pdf, strip_controls
 from .timeutil import TimeMode, auto_detect_time_mode, dt_compact, format_dt

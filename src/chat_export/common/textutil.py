@@ -1,7 +1,10 @@
 """Normalize and escape text for PDF rendering.
 
 This module removes unsupported control characters, escapes XML-sensitive
-characters, and converts emoji or non-ASCII glyphs into PDF-safe text output.
+characters, and converts emoji or unsupported glyphs into PDF-friendlier text
+output. With the optional ``emoji`` package installed, emoji are demojized to
+their textual aliases. Without it, non-ASCII glyphs fall back to explicit
+codepoint placeholders.
 """
 
 from __future__ import annotations
@@ -45,13 +48,14 @@ def esc_xml(s: str) -> str:
 
 
 def demojize_text(s: str) -> Tuple[str, List[str]]:
-    """Convert emoji or non-ASCII glyphs to printable text.
+    """Convert emoji or unsupported glyphs to printable text.
 
     Args:
         s (str): Input text.
 
     Returns:
-        Tuple[str, List[str]]: Normalized text and collected Unicode codepoints.
+        Tuple[str, List[str]]: Normalized text and collected Unicode
+        codepoints for transformed characters.
     """
     s = strip_controls(s)
     cps: List[str] = []
@@ -84,7 +88,8 @@ def normalize_for_pdf(text: str) -> Tuple[str, List[str]]:
         text (str): Input text.
 
     Returns:
-        Tuple[str, List[str]]: PDF-safe text and collected Unicode codepoints.
+        Tuple[str, List[str]]: Newline-normalized text and collected Unicode
+        codepoints for transformed characters.
     """
     t, cps = demojize_text(text or "")
     t = t.replace("\r\n", "\n").replace("\r", "\n")
