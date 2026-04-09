@@ -333,6 +333,23 @@ def _build_doc(
     start_dt, end_dt = _conversation_date_range(conversation)
     counts = _case_summary(conversation)
     right_side_id = _right_side_participant_id(conversation)
+    render_mode = "fallback-tech" if include_metadata_dump else "conversation"
+    log.info(
+        "Rendering PDF conversation_id=%s title=%s mode=%s path=%s",
+        conversation.conversation_id,
+        conversation.title,
+        render_mode,
+        pdf_path,
+    )
+    log.debug(
+        "Rendering PDF details conversation_id=%s participants=%s messages=%s exported_attachments=%s image_previews=%s right_side_id=%s",
+        conversation.conversation_id,
+        len(conversation.participants),
+        counts["messages"],
+        counts["image"] + counts["audio"] + counts["video"] + counts["file"],
+        include_image_previews,
+        right_side_id,
+    )
 
     def p(text: str, style=normal):
         """Build one paragraph flowable.
@@ -935,13 +952,19 @@ def _build_doc(
     story.append(attachment_index_table())
 
     log.debug(
-        "Building generic PDF path=%s source=%s conv_id=%s tech=%s",
+        "Building generic PDF story path=%s source=%s conv_id=%s tech=%s",
         pdf_path,
         conversation.source_app,
         conversation.conversation_id,
         include_metadata_dump,
     )
     doc.build(story)
+    log.info(
+        "Rendered PDF conversation_id=%s mode=%s path=%s",
+        conversation.conversation_id,
+        render_mode,
+        pdf_path,
+    )
 
 
 def build_conversation_pdf(
