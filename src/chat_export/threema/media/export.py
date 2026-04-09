@@ -56,6 +56,14 @@ def fetch_media_blobs(
         h = hashlib.sha256(data).hexdigest()
         if h not in dedup:
             dedup[h] = (label, data)
+    if dedup:
+        log.debug(
+            "Fetched media blobs msg_pk=%s table=%s raw=%s dedup=%s",
+            msg.pk,
+            table,
+            len(res),
+            len(dedup),
+        )
     return list(dedup.values())
 
 
