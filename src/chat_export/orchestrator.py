@@ -1,3 +1,10 @@
+"""Run importer-based export orchestration.
+
+This module selects the configured importer, creates the output directory
+structure, and writes one normal PDF plus one TECH PDF per imported
+conversation.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -22,6 +29,17 @@ IMPORTERS: Dict[str, ConversationImporter] = {
 
 
 def get_importer(source_app: str) -> ConversationImporter:
+    """Resolve an importer for a source key.
+
+    Args:
+        source_app (str): Registered importer key.
+
+    Returns:
+        ConversationImporter: Importer instance for the source key.
+
+    Raises:
+        ValueError: If the source key is not registered.
+    """
     try:
         return IMPORTERS[source_app]
     except KeyError as exc:
@@ -29,6 +47,15 @@ def get_importer(source_app: str) -> ConversationImporter:
 
 
 def _source_identifier(exported: ImportedConversation) -> str:
+    """Build a filename-safe identifier for one conversation.
+
+    Args:
+        exported (ImportedConversation): Imported conversation bundle.
+
+    Returns:
+        str: Source primary key if available. Otherwise a sanitized
+        conversation id.
+    """
     source_pk = exported.conversation.metadata.get("threema_conversation_pk")
     if source_pk is not None:
         return str(source_pk)
@@ -36,6 +63,12 @@ def _source_identifier(exported: ImportedConversation) -> str:
 
 
 def _build_tech_pdf(exported: ImportedConversation, pdf_tech_path: str) -> None:
+    """Write one TECH PDF file.
+
+    Args:
+        exported (ImportedConversation): Imported conversation bundle.
+        pdf_tech_path (str): Output PDF file path.
+    """
     if exported.tech_renderer == "threema" and exported.tech_payload is not None:
         build_threema_tech_pdf(exported.tech_payload, pdf_tech_path)
         return
@@ -43,6 +76,14 @@ def _build_tech_pdf(exported: ImportedConversation, pdf_tech_path: str) -> None:
 
 
 def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
+    """Execute one export run.
+
+    Args:
+        cfg (ExportConfig): Export configuration.
+
+    Returns:
+        Dict[str, Any]: Run metadata and per-conversation output file paths.
+    """
     cfg.validate()
 
     out_dir = os.path.abspath(cfg.out_dir)

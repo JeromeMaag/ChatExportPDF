@@ -1,3 +1,10 @@
+"""Load WhatsApp ZIP exports and normalize them for export.
+
+This module reads the selected WhatsApp ZIP export, extracts attachments,
+parses the chat text, and converts the result into the shared normalized
+conversation model.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -18,6 +25,14 @@ log = logging.getLogger(__name__)
 
 
 def _sha256_bytes(data: bytes) -> str:
+    """Hash binary content with SHA-256.
+
+    Args:
+        data (bytes): Binary input data.
+
+    Returns:
+        str: Lowercase SHA-256 hex digest.
+    """
     return hashlib.sha256(data).hexdigest()
 
 
@@ -25,6 +40,16 @@ def _extract_attachments(
     export,
     cfg: ExportConfig,
 ) -> tuple[dict[str, dict[str, object]], str | None]:
+    """Extract WhatsApp ZIP attachments to the media output directory.
+
+    Args:
+        export: Loaded WhatsApp ZIP export data.
+        cfg (ExportConfig): Export configuration.
+
+    Returns:
+        tuple[dict[str, dict[str, object]], str | None]: Media lookup by
+        filename and the media output directory path.
+    """
     media_lookup: dict[str, dict[str, object]] = {}
     media_dir = None
     if cfg.export_media:
@@ -56,9 +81,19 @@ def _extract_attachments(
 
 
 class WhatsAppImporter:
+    """Implement the importer contract for WhatsApp ZIP exports."""
+
     source_app = "whatsapp"
 
     def load_conversations(self, cfg: ExportConfig) -> ImportRun:
+        """Load and normalize one WhatsApp ZIP export.
+
+        Args:
+            cfg (ExportConfig): Export configuration.
+
+        Returns:
+            ImportRun: Import result with one normalized conversation.
+        """
         export = load_whatsapp_zip(
             cfg.resolved_input_path(),
             chat_text_name=cfg.chat_text_name,

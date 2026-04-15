@@ -1,3 +1,10 @@
+"""Normalize Threema importer data into shared export models.
+
+This module converts Threema database-side models, media export records,
+reactions, and edit history into the importer-agnostic normalized conversation
+model used by the generic renderers.
+"""
+
 from __future__ import annotations
 
 import os
@@ -18,6 +25,15 @@ from .models import ENT_MAP, Contact, Conversation, GroupInfo, Message
 
 
 def build_conversation_title(conv: Conversation, contacts: Dict[int, Contact]) -> str:
+    """Build a display title for one Threema conversation.
+
+    Args:
+        conv (Conversation): Threema conversation model.
+        contacts (Dict[int, Contact]): Contacts indexed by primary key.
+
+    Returns:
+        str: Group name, direct-contact display name, or fallback title.
+    """
     if conv.group_id_hex:
         return (
             conv.group_name.strip()
@@ -34,6 +50,16 @@ def determine_sender_display(
     conv: Conversation,
     contacts: Dict[int, Contact],
 ) -> str:
+    """Resolve the rendered sender display name for one message.
+
+    Args:
+        msg (Message): Threema message model.
+        conv (Conversation): Parent conversation model.
+        contacts (Dict[int, Contact]): Contacts indexed by primary key.
+
+    Returns:
+        str: Sender display name or fallback label.
+    """
     if msg.is_own == 1:
         return "Me"
     if msg.sender_pk is not None and int(msg.sender_pk) in contacts:
@@ -48,6 +74,16 @@ def determine_sender_id(
     conv: Conversation,
     contacts: Dict[int, Contact],
 ) -> Optional[str]:
+    """Resolve the normalized sender participant id for one message.
+
+    Args:
+        msg (Message): Threema message model.
+        conv (Conversation): Parent conversation model.
+        contacts (Dict[int, Contact]): Contacts indexed by primary key.
+
+    Returns:
+        Optional[str]: Normalized participant id or ``None``.
+    """
     if msg.is_own == 1:
         if conv.group_my_identity:
             return f"threema-id:{conv.group_my_identity}"
@@ -66,10 +102,26 @@ def determine_sender_id(
 
 
 def message_type_from_ent(ent: int) -> str:
+    """Map a Threema entity code to a normalized message type.
+
+    Args:
+        ent (int): Threema ``ENT`` code.
+
+    Returns:
+        str: Lowercase message type label.
+    """
     return ENT_MAP.get(ent, f"ENT_{ent}").lower()
 
 
 def build_status(msg: Message) -> str:
+    """Resolve a normalized delivery status for one message.
+
+    Args:
+        msg (Message): Threema message model.
+
+    Returns:
+        str: Status label.
+    """
     if msg.sendfailed in (1, True):
         return "failed"
     if msg.read in (1, True):
@@ -82,12 +134,28 @@ def build_status(msg: Message) -> str:
 
 
 def build_direction(msg: Message) -> str:
+    """Resolve a normalized direction label for one message.
+
+    Args:
+        msg (Message): Threema message model.
+
+    Returns:
+        str: ``system``, ``outgoing``, or ``incoming``.
+    """
     if msg.ent == 20:
         return "system"
     return "outgoing" if msg.is_own == 1 else "incoming"
 
 
 def build_zid_index(messages: List[Message]) -> Dict[str, Message]:
+    """Index messages by Threema ZID hex string.
+
+    Args:
+        messages (List[Message]): Threema message list.
+
+    Returns:
+        Dict[str, Message]: Messages keyed by ZID hex string.
+    """
     idx: Dict[str, Message] = {}
     for message in messages:
         if message.zid:
@@ -103,6 +171,19 @@ def build_quote_preview(
     conv: Conversation,
     contacts: Dict[int, Contact],
 ) -> Optional[str]:
+    """Build a short quoted-message preview string.
+
+    Args:
+        msg (Message): Threema message model.
+        zid_index (Dict[str, Message]): Message index keyed by ZID hex string.
+        time_mode (str): Source timestamp mode label.
+        tz_name (str): IANA timezone name.
+        conv (Conversation): Parent conversation model.
+        contacts (Dict[int, Contact]): Contacts indexed by primary key.
+
+    Returns:
+        Optional[str]: Quoted preview text or ``None``.
+    """
     if not msg.quoted_message_id:
         return None
 
@@ -126,6 +207,16 @@ def normalize_attachment(
     index: int,
     item: Dict[str, Any],
 ) -> NormalizedAttachment:
+    """Convert one Threema media export record to a normalized attachment.
+
+    Args:
+        message_id (int): Parent message primary key.
+        index (int): Attachment index within the message.
+        item (Dict[str, Any]): Threema media export record.
+
+    Returns:
+        NormalizedAttachment: Normalized attachment record.
+    """
     absolute_path = item.get("exported_path_abs")
     return NormalizedAttachment(
         attachment_id=f"threema-attachment:{message_id}:{index}",
@@ -156,6 +247,17 @@ def normalize_reactions(
     time_mode: str,
     tz_name: str,
 ) -> List[NormalizedReaction]:
+    """Convert raw Threema reactions to normalized reaction records.
+
+    Args:
+        reactions (List[Dict[str, Any]]): Raw reaction rows.
+        contacts (Dict[int, Contact]): Contacts indexed by primary key.
+        time_mode (str): Source timestamp mode label.
+        tz_name (str): IANA timezone name.
+
+    Returns:
+        List[NormalizedReaction]: Normalized reactions.
+    """
     out: List[NormalizedReaction] = []
     for reaction in reactions:
         creator_pk = reaction.get("ZCREATOR")
@@ -180,6 +282,16 @@ def normalize_edits(
     time_mode: str,
     tz_name: str,
 ) -> List[NormalizedEdit]:
+    """Convert raw edit history rows to normalized edit records.
+
+    Args:
+        history (List[Dict[str, Any]]): Raw history rows.
+        time_mode (str): Source timestamp mode label.
+        tz_name (str): IANA timezone name.
+
+    Returns:
+        List[NormalizedEdit]: Normalized edit history records.
+    """
     out: List[NormalizedEdit] = []
     for entry in history:
         out.append(
@@ -196,6 +308,15 @@ def determine_self_participant_id(
     conv: Conversation,
     messages: List[Message],
 ) -> Optional[str]:
+    """Resolve the normalized self participant id for one conversation.
+
+    Args:
+        conv (Conversation): Threema conversation model.
+        messages (List[Message]): Conversation messages.
+
+    Returns:
+        Optional[str]: Normalized self participant id or ``None``.
+    """
     if conv.group_my_identity:
         return f"threema-id:{conv.group_my_identity}"
     if any(message.is_own == 1 for message in messages):
@@ -214,6 +335,20 @@ def build_participants(
     time_mode: str,
     tz_name: str,
 ) -> List[NormalizedParticipant]:
+    """Build normalized participants for one Threema conversation.
+
+    Args:
+        conv (Conversation): Threema conversation model.
+        contacts (Dict[int, Contact]): Contacts indexed by primary key.
+        groupinfo (Optional[GroupInfo]): Group metadata model.
+        member_pks (List[int]): Group member contact primary keys.
+        self_participant_id (Optional[str]): Normalized self participant id.
+        time_mode (str): Source timestamp mode label.
+        tz_name (str): IANA timezone name.
+
+    Returns:
+        List[NormalizedParticipant]: Normalized participants.
+    """
     creator_id = groupinfo.creator if groupinfo else None
     creator_participant_id = f"threema-id:{creator_id}" if creator_id else None
 
@@ -322,6 +457,23 @@ def normalize_threema_conversation(
     time_mode: str,
     tz_name: str,
 ) -> NormalizedConversation:
+    """Convert one Threema conversation to the normalized export model.
+
+    Args:
+        conv (Conversation): Threema conversation model.
+        contacts (Dict[int, Contact]): Contacts indexed by primary key.
+        groupinfo (Optional[GroupInfo]): Group metadata model.
+        member_pks (List[int]): Group member contact primary keys.
+        messages (List[Message]): Conversation messages.
+        media_index (Dict[int, List[Dict[str, Any]]]): Media export records by message primary key.
+        reactions_by_message (Dict[int, List[Dict[str, Any]]]): Raw reactions by message primary key.
+        history_by_message (Dict[int, List[Dict[str, Any]]]): Raw edit history by message primary key.
+        time_mode (str): Source timestamp mode label.
+        tz_name (str): IANA timezone name.
+
+    Returns:
+        NormalizedConversation: Normalized conversation record.
+    """
     chat_title = build_conversation_title(conv, contacts)
     zid_index = build_zid_index(messages)
     self_participant_id = determine_self_participant_id(conv, messages)

@@ -1,3 +1,5 @@
+"""Re-export Threema database connection and query helpers."""
+
 from .connect import connect_db
 from .queries import (
     load_contacts,

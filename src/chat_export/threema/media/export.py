@@ -1,3 +1,10 @@
+"""Export Threema media blobs to filesystem attachments.
+
+This module loads media blobs from the Threema database, resolves optional
+external pointer payloads, unwraps encoded file content, and writes exported
+attachments plus optional raw dumps.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -18,6 +25,18 @@ log = logging.getLogger(__name__)
 def fetch_media_blobs(
     conn: sqlite3.Connection, msg: Message, table: str, msg_fk_val: Optional[int]
 ) -> List[Tuple[str, bytes]]:
+    """Load candidate media blobs for one message and table.
+
+    Args:
+        conn (sqlite3.Connection): Open SQLite connection.
+        msg (Message): Threema message model.
+        table (str): Media table name.
+        msg_fk_val (Optional[int]): Direct foreign-key reference from the
+            message row.
+
+    Returns:
+        List[Tuple[str, bytes]]: Deduplicated blob payloads with source labels.
+    """
     cur = conn.cursor()
     res: List[Tuple[str, bytes]] = []
     if msg_fk_val is not None:
@@ -49,6 +68,20 @@ def make_friendly_attachment_name(
     tz_name: str,
     ext: str,
 ) -> str:
+    """Build a readable exported attachment filename.
+
+    Args:
+        chat_title (str): Conversation title.
+        msg (Message): Threema message model.
+        sender (str): Sender display name.
+        kind (str): Generic attachment type.
+        time_mode (str): Source timestamp mode label.
+        tz_name (str): IANA timezone name.
+        ext (str): Output file extension.
+
+    Returns:
+        str: Filesystem-safe attachment filename.
+    """
     ts = dt_compact(msg.date_raw, time_mode, tz_name)
     return (
         f"{safe_filename(chat_title,40)}_{ts}_{safe_filename(sender,30)}_"
@@ -68,6 +101,25 @@ def export_media_for_message(
     max_media_bytes: int = 0,
     keep_raw: bool = True,
 ) -> List[Dict[str, Any]]:
+    """Export all media attachments for one Threema message.
+
+    Args:
+        conn (sqlite3.Connection): Open SQLite connection.
+        msg (Message): Threema message model.
+        chat_title (str): Conversation title.
+        conv_media_dir (str): Conversation media output directory.
+        external_index (Dict[str, str]): External data index keyed by UUID.
+        time_mode (str): Source timestamp mode label.
+        tz_name (str): IANA timezone name.
+        sender (str): Sender display name.
+        max_media_bytes (int): Maximum allowed blob size in bytes. ``0``
+            disables the limit.
+        keep_raw (bool): Write raw blob dumps in addition to exported files.
+
+    Returns:
+        List[Dict[str, Any]]: Export metadata records for all processed media
+        items.
+    """
     ensure_dir(conv_media_dir)
     items: List[Dict[str, Any]] = []
 

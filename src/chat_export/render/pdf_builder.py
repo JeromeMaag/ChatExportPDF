@@ -1,3 +1,10 @@
+"""Build generic PDF exports from normalized conversations.
+
+This module renders the normal conversation PDF and the fallback TECH PDF. It
+operates on normalized models only and does not depend on source-specific
+database objects.
+"""
+
 from __future__ import annotations
 
 import json
@@ -52,6 +59,12 @@ IMAGE_PREVIEW_EXCEPTIONS = (
 
 
 def exporter_version() -> str:
+    """Return the installed exporter package version.
+
+    Returns:
+        str: Installed package version, ``dev`` for editable local runs, or
+        ``unknown`` on unexpected lookup errors.
+    """
     try:
         return pkg_version("chat-export-pdf")
     except PackageNotFoundError:
@@ -61,6 +74,14 @@ def exporter_version() -> str:
 
 
 def _metadata_value(value: object) -> str:
+    """Convert one metadata value to printable text.
+
+    Args:
+        value (object): Metadata value.
+
+    Returns:
+        str: Scalar string, JSON string, or ``repr`` fallback.
+    """
     if value is None:
         return "NULL"
     if isinstance(value, (str, int, float, bool)):
@@ -72,10 +93,27 @@ def _metadata_value(value: object) -> str:
 
 
 def _is_large_metadata_value(value: str) -> bool:
+    """Check whether a metadata value should be split into blocks.
+
+    Args:
+        value (str): Serialized metadata value.
+
+    Returns:
+        bool: ``True`` if the value is large enough for chunked rendering.
+    """
     return len(value) > 600 or value.count("\n") > 12
 
 
 def _chunk_metadata_value(value: str, chunk_size: int = 900) -> list[str]:
+    """Split long metadata text into render-sized chunks.
+
+    Args:
+        value (str): Serialized metadata value.
+        chunk_size (int): Maximum chunk size in characters.
+
+    Returns:
+        list[str]: Chunked metadata text.
+    """
     normalized = value.replace("\r\n", "\n").replace("\r", "\n")
     if len(normalized) <= chunk_size:
         return [normalized]
@@ -104,6 +142,15 @@ def _chunk_metadata_value(value: str, chunk_size: int = 900) -> list[str]:
 def _right_side_participant_id(
     conversation: NormalizedConversation,
 ) -> Optional[str]:
+    """Resolve the participant rendered on the right side.
+
+    Args:
+        conversation (NormalizedConversation): Normalized conversation.
+
+    Returns:
+        Optional[str]: Right-side participant id. ``None`` if no right-side
+        participant can be resolved.
+    """
     if conversation.self_participant_id:
         return conversation.self_participant_id
     if conversation.conversation_type != "direct":
@@ -117,6 +164,15 @@ def _right_side_participant_id(
 
 
 def _conversation_date_range(conversation: NormalizedConversation) -> tuple[str, str]:
+    """Extract the first and last non-empty message timestamp.
+
+    Args:
+        conversation (NormalizedConversation): Normalized conversation.
+
+    Returns:
+        tuple[str, str]: Start and end timestamps. ``NULL`` placeholders if no
+        timestamps are present.
+    """
     timestamps = [
         message.timestamp for message in conversation.messages if message.timestamp
     ]
@@ -126,6 +182,14 @@ def _conversation_date_range(conversation: NormalizedConversation) -> tuple[str,
 
 
 def _case_summary(conversation: NormalizedConversation) -> dict[str, int]:
+    """Compute aggregate message and attachment counts.
+
+    Args:
+        conversation (NormalizedConversation): Normalized conversation.
+
+    Returns:
+        dict[str, int]: Summary counts keyed by message or attachment type.
+    """
     counts = {
         "messages": len(conversation.messages),
         "system": 0,
@@ -149,12 +213,31 @@ def _case_summary(conversation: NormalizedConversation) -> dict[str, int]:
 
 
 def _image_preview_pixel_bounds() -> tuple[int, int]:
+    """Convert preview size limits from points to pixels.
+
+    Returns:
+        tuple[int, int]: Maximum preview width and height in pixels.
+    """
     max_width_px = int((IMAGE_PREVIEW_MAX_WIDTH / 72.0) * IMAGE_PREVIEW_DPI)
     max_height_px = int((IMAGE_PREVIEW_MAX_HEIGHT / 72.0) * IMAGE_PREVIEW_DPI)
     return max_width_px, max_height_px
 
 
 def _build_image_preview_flowable(image_path: str) -> RLImage:
+    """Build one ReportLab image preview flowable.
+
+    Args:
+        image_path (str): Absolute image file path.
+
+    Returns:
+        RLImage: Sized image flowable for inline PDF rendering.
+
+    Raises:
+        FileNotFoundError: If the input file is missing.
+        OSError: If the file cannot be decoded.
+        ValueError: If the source or thumbnail has invalid dimensions.
+        PILImage.DecompressionBombError: If Pillow rejects the image size.
+    """
     max_width_px, max_height_px = _image_preview_pixel_bounds()
     with PILImage.open(image_path) as image:
         image = ImageOps.exif_transpose(image)
@@ -203,6 +286,14 @@ def _build_doc(
     include_metadata_dump: bool,
     include_image_previews: bool,
 ) -> None:
+    """Build one generic PDF document.
+
+    Args:
+        conversation (NormalizedConversation): Normalized conversation.
+        pdf_path (str): Output PDF file path.
+        include_metadata_dump (bool): Enable fallback TECH-style metadata output.
+        include_image_previews (bool): Enable inline image previews.
+    """
     styles = build_styles()
     normal = styles["normal"]
     h1 = styles["h1"]
@@ -244,9 +335,28 @@ def _build_doc(
     right_side_id = _right_side_participant_id(conversation)
 
     def p(text: str, style=normal):
+        """Build one paragraph flowable.
+
+        Args:
+            text (str): Paragraph text with newline support.
+            style: ReportLab paragraph style.
+
+        Returns:
+            Paragraph: Paragraph flowable.
+        """
         return Paragraph(text.replace("\n", "<br/>"), style)
 
     def link(label: str, rel_path: str, style=normal):
+        """Build one clickable relative-path link paragraph.
+
+        Args:
+            label (str): Visible link label.
+            rel_path (str): Relative file path from the PDF output.
+            style: ReportLab paragraph style.
+
+        Returns:
+            Paragraph: Link paragraph flowable.
+        """
         rel_path = rel_path.replace("\\", "/")
         href = quote(rel_path)
         return Paragraph(
@@ -255,9 +365,26 @@ def _build_doc(
         )
 
     def rel(target_abs: str) -> str:
+        """Build a PDF-relative file link path.
+
+        Args:
+            target_abs (str): Absolute target file path.
+
+        Returns:
+            str: Relative path from the PDF file.
+        """
         return relpath_for_link(target_abs, pdf_path)
 
     def _message_chunks(text: str, *, chunk_size: int = 450) -> list[str]:
+        """Split long message text into render-sized chunks.
+
+        Args:
+            text (str): Message text.
+            chunk_size (int): Maximum chunk size in characters.
+
+        Returns:
+            list[str]: Chunked message text.
+        """
         normalized = text.replace("\r\n", "\n").replace("\r", "\n")
         parts: list[str] = []
         for paragraph in normalized.split("\n"):
@@ -269,6 +396,14 @@ def _build_doc(
         return parts or [normalized]
 
     def _attachment_filename(attachment: NormalizedAttachment) -> str:
+        """Resolve one display filename for an attachment.
+
+        Args:
+            attachment (NormalizedAttachment): Normalized attachment.
+
+        Returns:
+            str: Attachment filename or fallback label.
+        """
         if attachment.filename:
             return attachment.filename
         if attachment.absolute_path:
@@ -280,6 +415,15 @@ def _build_doc(
         *,
         style=normal,
     ) -> Paragraph | None:
+        """Build one attachment link paragraph.
+
+        Args:
+            attachment (NormalizedAttachment): Normalized attachment.
+            style: ReportLab paragraph style.
+
+        Returns:
+            Paragraph | None: Link paragraph if the attachment has a file path.
+        """
         if not attachment.absolute_path:
             return None
         return link(
@@ -292,6 +436,15 @@ def _build_doc(
         message: NormalizedMessage,
         attachment: NormalizedAttachment,
     ) -> RLImage | None:
+        """Build one image preview if preview rendering is enabled.
+
+        Args:
+            message (NormalizedMessage): Parent message.
+            attachment (NormalizedAttachment): Normalized attachment.
+
+        Returns:
+            RLImage | None: Image preview flowable or ``None``.
+        """
         if not (
             include_image_previews
             and attachment.kind == "image"
@@ -311,6 +464,14 @@ def _build_doc(
             return None
 
     def _reaction_summary(message: NormalizedMessage) -> str | None:
+        """Build a compact reaction summary string.
+
+        Args:
+            message (NormalizedMessage): Normalized message.
+
+        Returns:
+            str | None: Reaction summary text or ``None``.
+        """
         if not message.reactions:
             return None
         parts = [
@@ -325,6 +486,16 @@ def _build_doc(
         return ", ".join(parts) + suffix
 
     def kv_table(rows: list[tuple[str, str]], *, col_widths=None, font_size=7.0):
+        """Build a two-column key-value table.
+
+        Args:
+            rows (list[tuple[str, str]]): Table rows without header.
+            col_widths: Optional ReportLab column widths.
+            font_size (float): Table font size.
+
+        Returns:
+            Table: Styled key-value table.
+        """
         data = [[p("<b>Field</b>"), p("<b>Value</b>")]] + [
             [
                 p(esc_xml(key)),
@@ -346,6 +517,11 @@ def _build_doc(
         return table
 
     def participant_table():
+        """Build the participant overview table.
+
+        Returns:
+            Table: Participant table.
+        """
         data = [[p("<b>Role</b>"), p("<b>Display</b>"), p("<b>Identity</b>")]]
         for participant in conversation.participants:
             data.append(
@@ -370,6 +546,11 @@ def _build_doc(
         return table
 
     def attachment_index_table():
+        """Build the attachment index table.
+
+        Returns:
+            Table: Attachment index table.
+        """
         data = [
             [
                 p("<b>Time</b>"),
@@ -416,6 +597,15 @@ def _build_doc(
         return table
 
     def metadata_rows(title: str, metadata: dict[str, object]):
+        """Build flowables for one metadata section.
+
+        Args:
+            title (str): Section title.
+            metadata (dict[str, object]): Metadata mapping.
+
+        Returns:
+            list[object]: Flowables for the metadata section.
+        """
         if not metadata:
             return [p(f"{esc_xml(title)}: <i>no metadata</i>", normal)]
         story_parts: list[object] = [p(esc_xml(title), h3)]
@@ -440,6 +630,12 @@ def _build_doc(
         return story_parts
 
     def append_message_linear(story: list[object], message: NormalizedMessage):
+        """Append one message in fallback TECH layout.
+
+        Args:
+            story (list[object]): Output story list.
+            message (NormalizedMessage): Normalized message.
+        """
         label = f"<b>{esc_xml(message.timestamp or 'NULL')}</b> - <b>{esc_xml(message.sender_display)}</b>"
         tail = f" <font color='#666666'>({esc_xml(message.message_type)}, {esc_xml(message.status or 'unknown')})</font>"
         story.append(p(label + tail, normal))
@@ -506,6 +702,17 @@ def _build_doc(
         background: colors.Color,
         max_width: float = CHAT_BUBBLE_MAX_WIDTH,
     ) -> Table:
+        """Build one chat bubble table.
+
+        Args:
+            rows (list[list[object]]): Bubble row flowables.
+            h_align (str): ReportLab horizontal alignment.
+            background (colors.Color): Bubble background color.
+            max_width (float): Maximum bubble width in points.
+
+        Returns:
+            Table: Styled bubble table.
+        """
         bubble = Table(rows, colWidths=[max_width], hAlign=h_align)
         bubble.setStyle(
             TableStyle(
@@ -522,6 +729,15 @@ def _build_doc(
         return bubble
 
     def _aligned_block(flowable: object, *, alignment: str) -> Table:
+        """Wrap one flowable in a left or right aligned block.
+
+        Args:
+            flowable (object): ReportLab flowable.
+            alignment (str): ``left`` or ``right``.
+
+        Returns:
+            Table: Alignment wrapper table.
+        """
         if alignment == "right":
             data = [["", flowable]]
             col_widths = [56 * mm, 118 * mm]
@@ -543,6 +759,14 @@ def _build_doc(
         return block
 
     def _message_alignment(message: NormalizedMessage) -> str:
+        """Resolve bubble alignment for one message.
+
+        Args:
+            message (NormalizedMessage): Normalized message.
+
+        Returns:
+            str: ``left``, ``right``, or ``center``.
+        """
         if message.message_type == "system":
             return "center"
         if right_side_id and message.sender_id == right_side_id:
@@ -550,6 +774,12 @@ def _build_doc(
         return "left"
 
     def append_message_bubble(story: list[object], message: NormalizedMessage):
+        """Append one message in normal chat bubble layout.
+
+        Args:
+            story (list[object]): Output story list.
+            message (NormalizedMessage): Normalized message.
+        """
         alignment = _message_alignment(message)
         attachment_links: list[object] = []
 
@@ -720,6 +950,13 @@ def build_conversation_pdf(
     *,
     include_image_previews: bool = True,
 ) -> None:
+    """Write the normal conversation PDF.
+
+    Args:
+        conversation (NormalizedConversation): Normalized conversation.
+        pdf_path (str): Output PDF file path.
+        include_image_previews (bool): Enable inline image previews.
+    """
     _build_doc(
         conversation,
         pdf_path,
@@ -731,6 +968,12 @@ def build_conversation_pdf(
 def build_fallback_tech_pdf(
     conversation: NormalizedConversation, pdf_path: str
 ) -> None:
+    """Write the generic fallback TECH PDF.
+
+    Args:
+        conversation (NormalizedConversation): Normalized conversation.
+        pdf_path (str): Output PDF file path.
+    """
     _build_doc(
         conversation,
         pdf_path,

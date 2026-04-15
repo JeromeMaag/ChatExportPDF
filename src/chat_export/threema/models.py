@@ -1,3 +1,10 @@
+"""Define importer-side Threema data models.
+
+This module contains source-specific dataclasses used by the Threema importer.
+They map closely to the SQLite schema and are later converted to normalized
+conversation models.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,6 +24,8 @@ ENT_MAP = {
 
 @dataclass
 class Contact:
+    """Store one Threema contact row."""
+
     pk: int
     identity: Optional[str]
     first: Optional[str]
@@ -52,6 +61,11 @@ class Contact:
     publickey: Optional[bytes]
 
     def display_name(self) -> str:
+        """Resolve the preferred display name for one contact.
+
+        Returns:
+            str: Public nick, full name, nickname, identity, or fallback label.
+        """
         if self.public_nick and self.public_nick.strip():
             return self.public_nick.strip()
         name = " ".join(
@@ -68,6 +82,8 @@ class Contact:
 
 @dataclass
 class Conversation:
+    """Store one Threema conversation row."""
+
     pk: int
     category: Optional[int]
     contact_pk: Optional[int]
@@ -82,6 +98,8 @@ class Conversation:
 
 @dataclass
 class GroupInfo:
+    """Store one Threema group metadata row."""
+
     pk: int
     group_id_hex: Optional[str]
     creator: Optional[str]
@@ -91,6 +109,8 @@ class GroupInfo:
 
 @dataclass
 class Message:
+    """Store one Threema message row."""
+
     pk: int
     ent: int
     conversation_pk: int
