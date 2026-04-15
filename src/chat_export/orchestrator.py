@@ -85,15 +85,32 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
         Dict[str, Any]: Run metadata and per-conversation output file paths.
     """
     cfg.validate()
+    input_path = cfg.resolved_input_path()
+    log.info("Starting orchestration source=%s", cfg.source_app)
 
     out_dir = os.path.abspath(cfg.out_dir)
     conv_out = os.path.join(out_dir, "conversations")
     ensure_dir(conv_out)
 
+    media_out = None
     if cfg.export_media:
-        ensure_dir(os.path.join(out_dir, "media"))
+        media_out = os.path.join(out_dir, "media")
+        ensure_dir(media_out)
+
+    log.debug(
+        "Ensured output directories source=%s input=%s conversations=%s media=%s",
+        cfg.source_app,
+        input_path,
+        conv_out,
+        media_out,
+    )
 
     importer = get_importer(cfg.source_app)
+    log.info(
+        "Selected importer source=%s importer=%s",
+        cfg.source_app,
+        importer.__class__.__name__,
+    )
     import_run = importer.load_conversations(cfg)
 
     results: Dict[str, Any] = {
@@ -103,7 +120,28 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
     }
     results.update(import_run.metadata)
 
-    for exported in import_run.conversations:
+    total_conversations = len(import_run.conversations)
+    for index, exported in enumerate(import_run.conversations, start=1):
+        log.info(
+            "Rendering conversation source=%s index=%s/%s messages=%s",
+            cfg.source_app,
+            index,
+            total_conversations,
+            len(exported.conversation.messages),
+        )
+        if log.isEnabledFor(logging.DEBUG):
+            attachment_count = sum(
+                len(message.attachments) for message in exported.conversation.messages
+            )
+            log.debug(
+                "Rendering conversation details source=%s index=%s/%s conversation_id=%s title=%s attachments=%s",
+                cfg.source_app,
+                index,
+                total_conversations,
+                exported.conversation.conversation_id,
+                exported.conversation.title,
+                attachment_count,
+            )
         safe_title = safe_filename(exported.conversation.title)
         source_identifier = _source_identifier(exported)
         pdf_path = os.path.join(conv_out, f"conv_{source_identifier}_{safe_title}.pdf")
@@ -117,7 +155,18 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
             pdf_path,
             include_image_previews=cfg.export_image_previews,
         )
+        log.debug(
+            "Rendered conversation PDF conversation_id=%s path=%s",
+            exported.conversation.conversation_id,
+            pdf_path,
+        )
         _build_tech_pdf(exported, pdf_tech_path)
+        log.debug(
+            "Rendered TECH PDF conversation_id=%s path=%s renderer=%s",
+            exported.conversation.conversation_id,
+            pdf_tech_path,
+            exported.tech_renderer or "fallback",
+        )
 
         results["exported"].append(
             {
@@ -131,10 +180,16 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
         )
 
         log.info(
-            "Exported source=%s conversation_id=%s title=%s",
+            "Exported conversation source=%s index=%s/%s",
             cfg.source_app,
-            exported.conversation.conversation_id,
-            exported.conversation.title,
+            index,
+            total_conversations,
         )
 
+    log.info(
+        "Completed orchestration source=%s exported=%s",
+        cfg.source_app,
+        len(results["exported"]),
+    )
+    log.debug("Completed orchestration output_dir=%s", out_dir)
     return results

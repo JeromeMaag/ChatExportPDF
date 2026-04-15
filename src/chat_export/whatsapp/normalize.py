@@ -7,6 +7,7 @@ the generic renderers.
 
 from __future__ import annotations
 
+import logging
 import mimetypes
 import re
 from collections import Counter
@@ -23,6 +24,8 @@ from ..normalized.models import (
     NormalizedParticipant,
 )
 from .zip_reader import WhatsAppZipExport
+
+log = logging.getLogger(__name__)
 
 PLAIN_MESSAGE_RE = re.compile(
     r"^\u200e?(?P<date>\d{2}\.\d{2}\.\d{2}), (?P<time>\d{2}:\d{2}(?::\d{2})?) - (?P<body>.*)$"
@@ -143,13 +146,16 @@ def parse_chat_messages(chat_text: str, tz_name: str) -> list[ParsedWhatsAppMess
     Returns:
         list[ParsedWhatsAppMessage]: Parsed messages in source order.
     """
+    lines = chat_text.splitlines()
     messages: list[ParsedWhatsAppMessage] = []
     current: ParsedWhatsAppMessage | None = None
+    continuation_lines = 0
 
-    for raw_line in chat_text.splitlines():
+    for raw_line in lines:
         match = _match_message_start(raw_line)
         if not match:
             if current is not None:
+                continuation_lines += 1
                 current.text = (
                     f"{current.text}\n{raw_line}" if current.text else raw_line
                 )
@@ -180,6 +186,13 @@ def parse_chat_messages(chat_text: str, tz_name: str) -> list[ParsedWhatsAppMess
         )
         messages.append(current)
 
+    log.debug(
+        "Parsed WhatsApp chat text messages=%s lines=%s continuations=%s tz=%s",
+        len(messages),
+        len(lines),
+        continuation_lines,
+        tz_name,
+    )
     return messages
 
 
@@ -311,8 +324,20 @@ def normalize_whatsapp_conversation(
     conversation_type, chat_partner, me_sender = _infer_conversation_type(
         title, senders
     )
+    log.debug(
+        "Inferred WhatsApp conversation type title=%s type=%s chat_partner=%s me_sender=%s",
+        title,
+        conversation_type,
+        chat_partner,
+        me_sender,
+    )
     participants = _build_participants(
         senders, conversation_type, chat_partner, me_sender
+    )
+    log.debug(
+        "Built WhatsApp participants title=%s count=%s",
+        title,
+        len(participants),
     )
     self_participant_id = (
         _participant_id_for_sender(me_sender) if me_sender else None
@@ -320,6 +345,8 @@ def normalize_whatsapp_conversation(
 
     sender_counts = Counter(senders)
     normalized_messages: list[NormalizedMessage] = []
+    attachment_count = 0
+    system_message_count = 0
     for index, message in enumerate(parsed_messages, start=1):
         direction = "system"
         sender_display = "System"
@@ -358,8 +385,10 @@ def normalize_whatsapp_conversation(
         message_type = "text"
         if attachments:
             message_type = attachments[0].kind
+            attachment_count += len(attachments)
         elif message.sender is None:
             message_type = "system"
+            system_message_count += 1
 
         normalized_messages.append(
             NormalizedMessage(
@@ -384,7 +413,7 @@ def normalize_whatsapp_conversation(
             )
         )
 
-    return NormalizedConversation(
+    conversation = NormalizedConversation(
         source_app="whatsapp",
         conversation_id=f"whatsapp-conversation:{safe_filename(title, 80)}",
         title=title,
@@ -402,3 +431,14 @@ def normalize_whatsapp_conversation(
             "me_sender": me_sender,
         },
     )
+    log.debug(
+        "Built normalized WhatsApp conversation conversation_id=%s title=%s type=%s messages=%s participants=%s attachments=%s system_messages=%s",
+        conversation.conversation_id,
+        conversation.title,
+        conversation.conversation_type,
+        len(conversation.messages),
+        len(conversation.participants),
+        attachment_count,
+        system_message_count,
+    )
+    return conversation

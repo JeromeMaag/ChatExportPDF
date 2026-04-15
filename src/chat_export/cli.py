@@ -105,7 +105,19 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     setup_logging(args.log_level, args.log_file)
     log = logging.getLogger("chat_export")
-    log.info("Starting export with config: %s", vars(args))
+    log.debug("Parsed CLI args: %s", vars(args))
+    log.info("Starting export source=%s tz=%s", args.source, args.tz)
+    log.debug(
+        "Export options source=%s media=%s image_previews=%s max_media_bytes=%s limit_conversations=%s limit_messages=%s log_file=%s chat_text_name=%s",
+        args.source,
+        not args.no_media,
+        not args.no_image_previews,
+        args.max_media_bytes,
+        args.limit_conversations,
+        args.limit_messages,
+        args.log_file,
+        args.chat_text_name,
+    )
     if args.source == "threema" and not args.external_folder:
         log.warning("No --external-folder specified, media export may be incomplete")
     if args.no_media:
@@ -137,6 +149,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     except Exception as e:
         log.exception("Export failed: %s", e)
         return 1
+
+    log.info(
+        "Completed export source=%s conversations=%s time_mode=%s",
+        res["source_app"],
+        len(res["exported"]),
+        res.get("time_mode", "unknown"),
+    )
+    log.debug("Completed export output_dir=%s", res["out_dir"])
 
     print("Source app:", res["source_app"])
     print("Detected time_mode:", res.get("time_mode", "unknown"))

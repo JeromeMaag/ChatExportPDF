@@ -6,11 +6,14 @@ and exposes ZIP attachment members for later extraction and normalization.
 
 from __future__ import annotations
 
+import logging
 import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -81,16 +84,31 @@ def load_whatsapp_zip(
             or the requested text member is missing.
     """
     archive_path = Path(zip_path)
+    log.debug("Loading WhatsApp ZIP path=%s", archive_path)
     with zipfile.ZipFile(archive_path) as archive:
         names = archive.namelist()
+        log.debug("Opened WhatsApp ZIP path=%s members=%s", archive_path, len(names))
         text_candidates = [name for name in names if name.lower().endswith(".txt")]
+        log.debug(
+            "Found WhatsApp chat text candidates path=%s count=%s",
+            archive_path,
+            len(text_candidates),
+        )
         if not text_candidates:
             raise ValueError(f"No .txt chat export found in ZIP: {archive_path}")
 
         scored_candidates: list[tuple[tuple[int, int], str, str]] = []
         for name in text_candidates:
             text = archive.read(name).decode("utf-8", errors="replace")
-            scored_candidates.append((_score_chat_text(text), name, text))
+            score = _score_chat_text(text)
+            scored_candidates.append((score, name, text))
+            log.debug(
+                "Scored WhatsApp chat text candidate path=%s name=%s matched_lines=%s total_lines=%s",
+                archive_path,
+                name,
+                score[0],
+                score[1],
+            )
 
         if chat_text_name:
             selected = next((item for item in scored_candidates if item[1] == chat_text_name), None)
@@ -102,9 +120,20 @@ def load_whatsapp_zip(
                 )
             _, selected_chat_text_name, chat_text = selected
             chat_text_name = selected_chat_text_name
+            log.info("Selected WhatsApp chat text mode=explicit")
+            log.debug(
+                "Selected WhatsApp chat text details path=%s name=%s mode=explicit",
+                archive_path,
+                chat_text_name,
+            )
         else:
             plausible = [item for item in scored_candidates if item[0][0] > 0]
             if len(plausible) > 1:
+                log.warning(
+                    "Multiple plausible WhatsApp chat text files found path=%s count=%s",
+                    archive_path,
+                    len(plausible),
+                )
                 candidates = ", ".join(
                     f"{name} (matched_lines={score[0]}, total_lines={score[1]})"
                     for score, name, _ in plausible
@@ -117,6 +146,12 @@ def load_whatsapp_zip(
             selected_pool = plausible if plausible else scored_candidates
             selected_pool.sort(key=lambda item: (item[0][0], item[0][1]), reverse=True)
             _, chat_text_name, chat_text = selected_pool[0]
+            log.info("Selected WhatsApp chat text mode=auto")
+            log.debug(
+                "Selected WhatsApp chat text details path=%s name=%s mode=auto",
+                archive_path,
+                chat_text_name,
+            )
 
         attachments = {}
         for name in names:
@@ -128,6 +163,12 @@ def load_whatsapp_zip(
                 name=name,
                 size=info.file_size,
             )
+    log.debug(
+        "Prepared WhatsApp ZIP export path=%s chat_text=%s attachments=%s",
+        archive_path,
+        chat_text_name,
+        len(attachments),
+    )
 
     return WhatsAppZipExport(
         zip_path=archive_path,
@@ -150,4 +191,9 @@ def iter_attachment_names(export: WhatsAppZipExport) -> Iterable[str]:
     Returns:
         Iterable[str]: Attachment filenames (ZIP basenames).
     """
+    log.debug(
+        "Iterating WhatsApp attachment names zip=%s count=%s",
+        export.zip_path,
+        len(export.attachments),
+    )
     return export.attachments.keys()
