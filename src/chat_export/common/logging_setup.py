@@ -41,20 +41,21 @@ def setup_logging(
             except Exception:
                 pass
 
-    handlers: list[logging.Handler] = []
+    managed_handlers: list[logging.Handler] = []
     if console:
-        handlers.append(logging.StreamHandler())
+        managed_handlers.append(logging.StreamHandler())
     if log_file:
         Path(log_file).parent.mkdir(parents=True, exist_ok=True)
-        handlers.append(logging.FileHandler(log_file, encoding="utf-8"))
-    if extra_handlers:
-        handlers.extend(extra_handlers)
+        managed_handlers.append(logging.FileHandler(log_file, encoding="utf-8"))
 
     formatter = logging.Formatter(LOG_FORMAT)
-    for handler in handlers:
+    for handler in managed_handlers:
         handler.setLevel(lvl)
         handler.setFormatter(formatter)
 
     root_logger.setLevel(lvl)
-    for handler in handlers:
+    for handler in managed_handlers:
         root_logger.addHandler(handler)
+    if extra_handlers:
+        for handler in extra_handlers:
+            root_logger.addHandler(handler)

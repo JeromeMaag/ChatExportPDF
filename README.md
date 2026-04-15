@@ -107,6 +107,18 @@ It supports:
 - live log output inside the window
 - default output folders next to the selected input file
 
+A pre-built standalone EXE is attached to each release on the [Releases page](https://github.com/JeromeMaag/ChatExportPDF/releases).
+Just download `ChatExportPDF.exe` and run it — no Python installation required.
+
+**Build the EXE yourself** (Windows, requires Python and PyInstaller):
+
+```powershell
+pip install pyinstaller
+.\packaging\windows\build_gui.ps1
+```
+
+The EXE is written to `dist\<timestamp>\ChatExportPDF.exe` inside the repository root.
+
 ## Command Line Options
 
 ### Required
