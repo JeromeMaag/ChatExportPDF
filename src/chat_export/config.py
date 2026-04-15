@@ -84,6 +84,11 @@ class ExportConfig:
             ValueError: If ``source_app`` is empty.
             FileNotFoundError: If the input file or external directory is missing.
         """
+        if not self.source_app or not self.source_app.strip():
+            raise ValueError("source_app must not be empty")
+        out = Path(self.out_dir)
+        out.mkdir(parents=True, exist_ok=True)
+
         input_path = Path(self.resolved_input_path())
         log.debug(
             "Validating config source=%s input=%s out_dir=%s external_folder=%s",
@@ -92,11 +97,6 @@ class ExportConfig:
             self.out_dir,
             self.external_folder,
         )
-        if not self.source_app or not self.source_app.strip():
-            raise ValueError("source_app must not be empty")
-        out = Path(self.out_dir)
-        out.mkdir(parents=True, exist_ok=True)
-
         if not input_path.exists() or not input_path.is_file():
             raise FileNotFoundError(f"Input not found: {input_path}")
 
