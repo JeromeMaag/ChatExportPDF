@@ -27,7 +27,12 @@ def parse_non_negative_int(raw_value: str, field_name: str) -> int:
         ValueError: If the value is not a non-negative integer.
     """
     value = raw_value.strip() or "0"
-    parsed = int(value)
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise ValueError(
+            f"{field_name} must be a non-negative integer."
+        ) from exc
     if parsed < 0:
         raise ValueError(f"{field_name} must be 0 or a positive integer.")
     return parsed
