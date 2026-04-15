@@ -96,6 +96,17 @@ The preferred entry points are:
 - `chat-export ...`
 - `python -m chat_export ...`
 
+### Desktop GUI
+
+A simple Windows GUI is also available.
+
+It supports:
+- `threema` and `whatsapp`
+- source-specific path fields
+- basic and advanced options
+- live log output inside the window
+- default output folders next to the selected input file
+
 ## Command Line Options
 
 ### Required

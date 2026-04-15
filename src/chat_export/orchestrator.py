@@ -13,6 +13,7 @@ from typing import Any, Dict
 
 from .common.util import ensure_dir, safe_filename
 from .config import ExportConfig
+from .constants import SOURCE_APP_THREEMA, SOURCE_APP_WHATSAPP
 from .importers.base import ConversationImporter, ImportedConversation
 from .render.pdf_builder import build_conversation_pdf, build_fallback_tech_pdf
 from .threema.importer import ThreemaImporter
@@ -23,8 +24,8 @@ log = logging.getLogger(__name__)
 
 
 IMPORTERS: Dict[str, ConversationImporter] = {
-    "threema": ThreemaImporter(),
-    "whatsapp": WhatsAppImporter(),
+    SOURCE_APP_THREEMA: ThreemaImporter(),
+    SOURCE_APP_WHATSAPP: WhatsAppImporter(),
 }
 
 
