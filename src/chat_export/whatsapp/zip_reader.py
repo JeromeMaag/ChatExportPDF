@@ -138,12 +138,16 @@ def load_whatsapp_zip(
 
 
 def iter_attachment_names(export: WhatsAppZipExport) -> Iterable[str]:
-    """Iterate normalized attachment filenames from a loaded ZIP export.
+    """Iterate attachment filenames (ZIP basenames) from a loaded ZIP export.
+
+    Returns the dict keys from ``export.attachments``, which are the bare
+    filenames (``Path(name).name``) of each ZIP member — no further
+    normalization or sanitization is applied.
 
     Args:
         export (WhatsAppZipExport): Loaded ZIP export data.
 
     Returns:
-        Iterable[str]: Attachment filenames.
+        Iterable[str]: Attachment filenames (ZIP basenames).
     """
     return export.attachments.keys()
