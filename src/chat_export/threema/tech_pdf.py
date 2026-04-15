@@ -379,15 +379,12 @@ def build_threema_tech_pdf(tech: ThreemaTechnicalConversation, pdf_path: str) ->
     start_dt, end_dt = conv_date_range(tech.messages, tech.time_mode, tech.tz_name)
     counts = compute_case_summary(tech.messages, tech.media_index)
     part_rows = participant_rows(tech.conv, tech.groupinfo, tech.contacts, tech.members)
-    log.info(
-        "Rendering Threema TECH PDF conv_pk=%s title=%s path=%s",
+    log.info("Rendering Threema TECH PDF conv_pk=%s", tech.conv.pk)
+    log.debug(
+        "Rendering Threema TECH PDF details conv_pk=%s title=%s path=%s participants=%s messages=%s attachments=%s timezone=%s time_mode=%s",
         tech.conv.pk,
         tech.chat_title,
         pdf_path,
-    )
-    log.debug(
-        "Rendering Threema TECH PDF details conv_pk=%s participants=%s messages=%s attachments=%s timezone=%s time_mode=%s",
-        tech.conv.pk,
         len(part_rows),
         counts["messages"],
         counts["image"] + counts["audio"] + counts["video"] + counts["file"],
@@ -743,8 +740,5 @@ def build_threema_tech_pdf(tech: ThreemaTechnicalConversation, pdf_path: str) ->
         len(tech.messages),
     )
     doc.build(story)
-    log.info(
-        "Rendered Threema TECH PDF conv_pk=%s path=%s",
-        tech.conv.pk,
-        pdf_path,
-    )
+    log.info("Rendered Threema TECH PDF conv_pk=%s", tech.conv.pk)
+    log.debug("Rendered Threema TECH PDF path=%s", pdf_path)

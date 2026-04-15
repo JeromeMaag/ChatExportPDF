@@ -104,7 +104,8 @@ class WhatsAppImporter:
             ImportRun: Import result with one normalized conversation.
         """
         input_path = cfg.resolved_input_path()
-        log.info("Loading WhatsApp export zip=%s", input_path)
+        log.info("Loading WhatsApp export")
+        log.debug("Loading WhatsApp export zip=%s", input_path)
         export = load_whatsapp_zip(
             input_path,
             chat_text_name=cfg.chat_text_name,
@@ -152,12 +153,15 @@ class WhatsAppImporter:
         )
 
         log.info(
-            "Loaded WhatsApp export zip=%s title=%s messages=%s attachments=%s media_exported=%s",
-            export.zip_path,
-            conversation.title,
+            "Loaded WhatsApp export messages=%s attachments=%s media_exported=%s",
             len(parsed_messages),
             len(export.attachments),
             exported_attachment_count,
+        )
+        log.debug(
+            "Loaded WhatsApp export details zip=%s title=%s",
+            export.zip_path,
+            conversation.title,
         )
 
         run = ImportRun(

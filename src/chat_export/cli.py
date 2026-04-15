@@ -106,13 +106,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     setup_logging(args.log_level, args.log_file)
     log = logging.getLogger("chat_export")
     log.debug("Parsed CLI args: %s", vars(args))
-    log.info(
-        "Starting export source=%s input=%s out_dir=%s tz=%s",
-        args.source,
-        args.input_path or args.db_path,
-        args.out_dir,
-        args.tz,
-    )
+    log.info("Starting export source=%s tz=%s", args.source, args.tz)
     log.debug(
         "Export options source=%s media=%s image_previews=%s max_media_bytes=%s limit_conversations=%s limit_messages=%s log_file=%s chat_text_name=%s",
         args.source,
@@ -157,12 +151,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 1
 
     log.info(
-        "Completed export source=%s conversations=%s out_dir=%s time_mode=%s",
+        "Completed export source=%s conversations=%s time_mode=%s",
         res["source_app"],
         len(res["exported"]),
-        res["out_dir"],
         res.get("time_mode", "unknown"),
     )
+    log.debug("Completed export output_dir=%s", res["out_dir"])
 
     print("Source app:", res["source_app"])
     print("Detected time_mode:", res.get("time_mode", "unknown"))

@@ -37,7 +37,7 @@ def build_external_index(external_folder: Optional[str]) -> Dict[str, str]:
         log.warning("External folder does not exist: %s", root)
         return idx
 
-    log.info("Building external index from: %s", root)
+    log.info("Building external index")
 
     uuid_anywhere = re.compile(
         r"([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})"

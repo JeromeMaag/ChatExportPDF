@@ -49,7 +49,8 @@ class ThreemaImporter:
             TECH payloads.
         """
         input_path = cfg.resolved_input_path()
-        log.info("Loading Threema export db=%s", input_path)
+        log.info("Loading Threema export")
+        log.debug("Loading Threema export db=%s", input_path)
         conn = connect_db(input_path)
         try:
             time_mode = auto_detect_time_mode(conn)
@@ -82,8 +83,9 @@ class ThreemaImporter:
             imported: List[ImportedConversation] = []
             for conv in conversations:
                 chat_title = build_conversation_title(conv, contacts)
-                log.info(
-                    "Processing Threema conversation conv_pk=%s title=%s",
+                log.info("Processing Threema conversation conv_pk=%s", conv.pk)
+                log.debug(
+                    "Processing Threema conversation details conv_pk=%s title=%s",
                     conv.pk,
                     chat_title,
                 )
@@ -127,15 +129,16 @@ class ThreemaImporter:
                         )
                         if items:
                             media_index[message.pk] = items
-                media_item_count = sum(len(items) for items in media_index.values())
                 if cfg.export_media:
-                    log.debug(
-                        "Collected Threema media conv_pk=%s messages_with_media=%s media_items=%s media_dir=%s",
-                        conv.pk,
-                        len(media_index),
-                        media_item_count,
-                        conv_media_dir,
-                    )
+                    if log.isEnabledFor(logging.DEBUG):
+                        media_item_count = sum(len(items) for items in media_index.values())
+                        log.debug(
+                            "Collected Threema media conv_pk=%s messages_with_media=%s media_items=%s media_dir=%s",
+                            conv.pk,
+                            len(media_index),
+                            media_item_count,
+                            conv_media_dir,
+                        )
 
                 reactions_by_message = {
                     message.pk: [dict(row) for row in load_reactions(conn, message.pk)]
@@ -145,14 +148,15 @@ class ThreemaImporter:
                     message.pk: [dict(row) for row in load_history(conn, message.pk)]
                     for message in messages
                 }
-                reaction_count = sum(len(rows) for rows in reactions_by_message.values())
-                history_count = sum(len(rows) for rows in history_by_message.values())
-                log.debug(
-                    "Collected Threema metadata conv_pk=%s reactions=%s histories=%s",
-                    conv.pk,
-                    reaction_count,
-                    history_count,
-                )
+                if log.isEnabledFor(logging.DEBUG):
+                    reaction_count = sum(len(rows) for rows in reactions_by_message.values())
+                    history_count = sum(len(rows) for rows in history_by_message.values())
+                    log.debug(
+                        "Collected Threema metadata conv_pk=%s reactions=%s histories=%s",
+                        conv.pk,
+                        reaction_count,
+                        history_count,
+                    )
 
                 groupinfo = groups.get(conv.group_id_hex) if conv.group_id_hex else None
                 members = group_members_map.get(conv.pk, [])

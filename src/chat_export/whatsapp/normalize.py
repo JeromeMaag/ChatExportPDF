@@ -146,11 +146,12 @@ def parse_chat_messages(chat_text: str, tz_name: str) -> list[ParsedWhatsAppMess
     Returns:
         list[ParsedWhatsAppMessage]: Parsed messages in source order.
     """
+    lines = chat_text.splitlines()
     messages: list[ParsedWhatsAppMessage] = []
     current: ParsedWhatsAppMessage | None = None
     continuation_lines = 0
 
-    for raw_line in chat_text.splitlines():
+    for raw_line in lines:
         match = _match_message_start(raw_line)
         if not match:
             if current is not None:
@@ -188,7 +189,7 @@ def parse_chat_messages(chat_text: str, tz_name: str) -> list[ParsedWhatsAppMess
     log.debug(
         "Parsed WhatsApp chat text messages=%s lines=%s continuations=%s tz=%s",
         len(messages),
-        len(chat_text.splitlines()),
+        len(lines),
         continuation_lines,
         tz_name,
     )

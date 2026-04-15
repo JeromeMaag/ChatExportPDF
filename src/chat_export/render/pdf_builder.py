@@ -335,17 +335,17 @@ def _build_doc(
     right_side_id = _right_side_participant_id(conversation)
     render_mode = "fallback-tech" if include_metadata_dump else "conversation"
     log.info(
-        "Rendering PDF conversation_id=%s title=%s mode=%s path=%s",
+        "Rendering PDF mode=%s messages=%s participants=%s",
+        render_mode,
+        counts["messages"],
+        len(conversation.participants),
+    )
+    log.debug(
+        "Rendering PDF details conversation_id=%s title=%s mode=%s path=%s exported_attachments=%s image_previews=%s right_side_id=%s",
         conversation.conversation_id,
         conversation.title,
         render_mode,
         pdf_path,
-    )
-    log.debug(
-        "Rendering PDF details conversation_id=%s participants=%s messages=%s exported_attachments=%s image_previews=%s right_side_id=%s",
-        conversation.conversation_id,
-        len(conversation.participants),
-        counts["messages"],
         counts["image"] + counts["audio"] + counts["video"] + counts["file"],
         include_image_previews,
         right_side_id,
@@ -959,10 +959,10 @@ def _build_doc(
         include_metadata_dump,
     )
     doc.build(story)
-    log.info(
-        "Rendered PDF conversation_id=%s mode=%s path=%s",
+    log.info("Rendered PDF mode=%s", render_mode)
+    log.debug(
+        "Rendered PDF details conversation_id=%s path=%s",
         conversation.conversation_id,
-        render_mode,
         pdf_path,
     )
 

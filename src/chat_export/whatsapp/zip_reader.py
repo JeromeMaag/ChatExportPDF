@@ -120,8 +120,9 @@ def load_whatsapp_zip(
                 )
             _, selected_chat_text_name, chat_text = selected
             chat_text_name = selected_chat_text_name
-            log.info(
-                "Selected WhatsApp chat text path=%s name=%s mode=explicit",
+            log.info("Selected WhatsApp chat text mode=explicit")
+            log.debug(
+                "Selected WhatsApp chat text details path=%s name=%s mode=explicit",
                 archive_path,
                 chat_text_name,
             )
@@ -145,8 +146,9 @@ def load_whatsapp_zip(
             selected_pool = plausible if plausible else scored_candidates
             selected_pool.sort(key=lambda item: (item[0][0], item[0][1]), reverse=True)
             _, chat_text_name, chat_text = selected_pool[0]
-            log.info(
-                "Selected WhatsApp chat text path=%s name=%s mode=auto",
+            log.info("Selected WhatsApp chat text mode=auto")
+            log.debug(
+                "Selected WhatsApp chat text details path=%s name=%s mode=auto",
                 archive_path,
                 chat_text_name,
             )
