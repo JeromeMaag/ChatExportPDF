@@ -91,8 +91,12 @@ def build_export_config(
     if effective_source != SOURCE_APP_THREEMA:
         effective_external_folder = None
 
+    effective_out_dir = out_dir.strip()
+    if not effective_out_dir:
+        raise ValueError("out_dir must not be empty or whitespace-only.")
+
     return ExportConfig(
-        out_dir=out_dir.strip(),
+        out_dir=effective_out_dir,
         source_app=effective_source,
         input_path=effective_input_path,
         db_path=effective_db_path,
