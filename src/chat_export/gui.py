@@ -611,7 +611,14 @@ class ChatExportGui:
                 parent=self.root,
             )
             return
-        os.startfile(self._last_output_dir)  # type: ignore[attr-defined]
+        if not hasattr(os, "startfile"):
+            messagebox.showerror(
+                "Unsupported platform",
+                "Opening the output folder from the GUI is only supported on Windows.",
+                parent=self.root,
+            )
+            return
+        os.startfile(self._last_output_dir)
 
 
 def main() -> int:
