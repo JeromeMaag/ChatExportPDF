@@ -42,10 +42,8 @@ def build_external_index(external_folder: Optional[str]) -> Dict[str, str]:
     uuid_anywhere = re.compile(
         r"([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})"
     )
-    scanned_files = 0
     for dirpath, _, filenames in os.walk(root):
         for fn in filenames:
-            scanned_files += 1
             m = uuid_anywhere.search(fn)
             if m:
                 idx.setdefault(m.group(1).lower(), os.path.join(dirpath, fn))
@@ -55,7 +53,7 @@ def build_external_index(external_folder: Optional[str]) -> Dict[str, str]:
                     idx.setdefault(stem.lower(), os.path.join(dirpath, fn))
 
     log.info("External index built: %s entries", len(idx))
-    log.debug("External index root=%s scanned_files=%s", root, scanned_files)
+    log.debug("External index root: %s", root)
     return idx
 
 

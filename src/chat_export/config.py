@@ -5,12 +5,9 @@ renderers, and the orchestrator. It also validates input paths and creates
 the top-level output directory.
 """
 
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-
-log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -67,11 +64,6 @@ class ExportConfig:
                 f"source_app={self.source_app} requires --input-path"
                 + (" or --db-path" if self.source_app == "threema" else "")
             )
-        log.debug(
-            "Resolved input path source=%s path=%s",
-            self.source_app,
-            path,
-        )
         return path
 
     def validate(self) -> None:
@@ -84,19 +76,12 @@ class ExportConfig:
             ValueError: If ``source_app`` is empty.
             FileNotFoundError: If the input file or external directory is missing.
         """
-        input_path = Path(self.resolved_input_path())
-        log.debug(
-            "Validating config source=%s input=%s out_dir=%s external_folder=%s",
-            self.source_app,
-            input_path,
-            self.out_dir,
-            self.external_folder,
-        )
         if not self.source_app or not self.source_app.strip():
             raise ValueError("source_app must not be empty")
         out = Path(self.out_dir)
         out.mkdir(parents=True, exist_ok=True)
 
+        input_path = Path(self.resolved_input_path())
         if not input_path.exists() or not input_path.is_file():
             raise FileNotFoundError(f"Input not found: {input_path}")
 
@@ -104,9 +89,3 @@ class ExportConfig:
             ext = Path(self.external_folder)
             if not ext.exists() or not ext.is_dir():
                 raise FileNotFoundError(f"External folder not found: {ext}")
-        log.debug(
-            "Validated config source=%s input=%s out_dir=%s",
-            self.source_app,
-            input_path,
-            out,
-        )

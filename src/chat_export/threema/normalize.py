@@ -7,7 +7,6 @@ model used by the generic renderers.
 
 from __future__ import annotations
 
-import logging
 import os
 from typing import Any, Dict, List, Optional
 
@@ -23,8 +22,6 @@ from ..normalized.models import (
     NormalizedReaction,
 )
 from .models import ENT_MAP, Contact, Conversation, GroupInfo, Message
-
-log = logging.getLogger(__name__)
 
 
 def build_conversation_title(conv: Conversation, contacts: Dict[int, Contact]) -> str:
@@ -478,23 +475,8 @@ def normalize_threema_conversation(
         NormalizedConversation: Normalized conversation record.
     """
     chat_title = build_conversation_title(conv, contacts)
-    conversation_type = (
-        "group" if conv.group_id_hex else "direct" if conv.contact_pk else "unknown"
-    )
-    log.debug(
-        "Building normalized Threema conversation conv_pk=%s title=%s type=%s messages=%s",
-        conv.pk,
-        chat_title,
-        conversation_type,
-        len(messages),
-    )
     zid_index = build_zid_index(messages)
     self_participant_id = determine_self_participant_id(conv, messages)
-    log.debug(
-        "Determined Threema self participant conv_pk=%s self_participant_id=%s",
-        conv.pk,
-        self_participant_id,
-    )
     participants = build_participants(
         conv,
         contacts,
@@ -504,16 +486,8 @@ def normalize_threema_conversation(
         time_mode,
         tz_name,
     )
-    log.debug(
-        "Built Threema participants conv_pk=%s count=%s",
-        conv.pk,
-        len(participants),
-    )
 
     normalized_messages: List[NormalizedMessage] = []
-    attachment_count = 0
-    reaction_count = 0
-    edit_count = 0
     for message in messages:
         attachments = [
             normalize_attachment(message.pk, index, item)
@@ -526,9 +500,6 @@ def normalize_threema_conversation(
             tz_name,
         )
         edits = normalize_edits(history_by_message.get(message.pk, []), time_mode, tz_name)
-        attachment_count += len(attachments)
-        reaction_count += len(reactions)
-        edit_count += len(edits)
         text_codepoints = normalize_for_pdf(message.text or "")[1] if message.text else []
         caption_codepoints = (
             normalize_for_pdf(message.caption or "")[1] if message.caption else []
@@ -602,11 +573,11 @@ def normalize_threema_conversation(
             )
         )
 
-    conversation = NormalizedConversation(
+    return NormalizedConversation(
         source_app="threema",
         conversation_id=f"threema-conversation:{conv.pk}",
         title=chat_title,
-        conversation_type=conversation_type,
+        conversation_type="group" if conv.group_id_hex else "direct" if conv.contact_pk else "unknown",
         participants=participants,
         messages=normalized_messages,
         timezone=tz_name,
@@ -633,15 +604,3 @@ def normalize_threema_conversation(
             "marked": conv.marked,
         },
     )
-    log.debug(
-        "Built normalized Threema conversation conversation_id=%s conv_pk=%s type=%s messages=%s participants=%s attachments=%s reactions=%s edits=%s",
-        conversation.conversation_id,
-        conv.pk,
-        conversation.conversation_type,
-        len(conversation.messages),
-        len(conversation.participants),
-        attachment_count,
-        reaction_count,
-        edit_count,
-    )
-    return conversation

@@ -56,8 +56,6 @@ def _extract_attachments(
         title = safe_filename(Path(export.chat_text_name).stem)
         media_dir = os.path.join(os.path.abspath(cfg.out_dir), "media", title)
         ensure_dir(media_dir)
-    else:
-        log.debug("WhatsApp media export disabled zip=%s", export.zip_path)
 
     with zipfile.ZipFile(export.zip_path) as archive:
         for filename, attachment in export.attachments.items():
@@ -79,13 +77,6 @@ def _extract_attachments(
                 info["absolute_path"] = None
             media_lookup[filename] = info
 
-    log.debug(
-        "Prepared WhatsApp attachments zip=%s attachments=%s media_dir=%s",
-        export.zip_path,
-        len(media_lookup),
-        media_dir,
-    )
-
     return media_lookup, media_dir
 
 
@@ -103,37 +94,14 @@ class WhatsAppImporter:
         Returns:
             ImportRun: Import result with one normalized conversation.
         """
-        input_path = cfg.resolved_input_path()
-        log.info("Loading WhatsApp export zip=%s", input_path)
         export = load_whatsapp_zip(
-            input_path,
+            cfg.resolved_input_path(),
             chat_text_name=cfg.chat_text_name,
         )
         parsed_messages = parse_chat_messages(export.chat_text, cfg.tz_name)
-        log.debug(
-            "Parsed WhatsApp messages zip=%s count=%s",
-            export.zip_path,
-            len(parsed_messages),
-        )
         if cfg.limit_messages and cfg.limit_messages > 0:
             parsed_messages = parsed_messages[: cfg.limit_messages]
-            log.debug(
-                "Applied WhatsApp message limit zip=%s limit=%s resulting=%s",
-                export.zip_path,
-                cfg.limit_messages,
-                len(parsed_messages),
-            )
         media_lookup, media_dir = _extract_attachments(export, cfg)
-        exported_attachment_count = sum(
-            1 for media in media_lookup.values() if media.get("absolute_path")
-        )
-        log.debug(
-            "Prepared WhatsApp media lookup zip=%s entries=%s exported=%s media_dir=%s",
-            export.zip_path,
-            len(media_lookup),
-            exported_attachment_count,
-            media_dir,
-        )
         conversation = normalize_whatsapp_conversation(
             export=export,
             parsed_messages=parsed_messages,
@@ -152,15 +120,14 @@ class WhatsAppImporter:
         )
 
         log.info(
-            "Loaded WhatsApp export zip=%s title=%s messages=%s attachments=%s media_exported=%s",
+            "Loaded WhatsApp export zip=%s title=%s messages=%s attachments=%s",
             export.zip_path,
             conversation.title,
             len(parsed_messages),
             len(export.attachments),
-            exported_attachment_count,
         )
 
-        run = ImportRun(
+        return ImportRun(
             source_app=self.source_app,
             conversations=[imported],
             metadata={
@@ -169,10 +136,3 @@ class WhatsAppImporter:
                 "attachments_in_zip": len(export.attachments),
             },
         )
-        log.info(
-            "Completed WhatsApp import conversations=%s attachments_in_zip=%s timezone=%s",
-            len(run.conversations),
-            len(export.attachments),
-            cfg.tz_name,
-        )
-        return run
