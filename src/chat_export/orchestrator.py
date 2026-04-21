@@ -15,6 +15,7 @@ from .common.util import ensure_dir, safe_filename
 from .config import ExportConfig
 from .constants import SOURCE_APP_THREEMA, SOURCE_APP_WHATSAPP
 from .importers.base import ConversationImporter, ImportedConversation
+from .render.excel_builder import build_conversation_xlsx
 from .render.pdf_builder import build_conversation_pdf, build_fallback_tech_pdf
 from .threema.importer import ThreemaImporter
 from .threema.tech_pdf import build_threema_tech_pdf
@@ -98,12 +99,18 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
         media_out = os.path.join(out_dir, "media")
         ensure_dir(media_out)
 
+    excel_out = None
+    if cfg.export_excel:
+        excel_out = os.path.join(out_dir, "excel")
+        ensure_dir(excel_out)
+
     log.debug(
-        "Ensured output directories source=%s input=%s conversations=%s media=%s",
+        "Ensured output directories source=%s input=%s conversations=%s media=%s excel=%s",
         cfg.source_app,
         input_path,
         conv_out,
         media_out,
+        excel_out,
     )
 
     importer = get_importer(cfg.source_app)
@@ -150,6 +157,11 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
             conv_out,
             f"conv_{source_identifier}_{safe_title}_TECH.pdf",
         )
+        xlsx_path = (
+            os.path.join(excel_out, f"conv_{source_identifier}_{safe_title}.xlsx")
+            if excel_out
+            else None
+        )
 
         build_conversation_pdf(
             exported.conversation,
@@ -168,6 +180,13 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
             pdf_tech_path,
             exported.tech_renderer or "fallback",
         )
+        if xlsx_path:
+            build_conversation_xlsx(exported.conversation, xlsx_path)
+            log.debug(
+                "Rendered Excel workbook conversation_id=%s path=%s",
+                exported.conversation.conversation_id,
+                xlsx_path,
+            )
 
         results["exported"].append(
             {
@@ -175,6 +194,7 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
                 "title": exported.conversation.title,
                 "pdf_path": pdf_path,
                 "pdf_tech_path": pdf_tech_path,
+                "xlsx_path": xlsx_path,
                 "media_dir": exported.metadata.get("media_dir"),
                 "message_count": exported.metadata.get("message_count", len(exported.conversation.messages)),
             }

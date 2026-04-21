@@ -9,6 +9,7 @@ Current sources:
 For each conversation, the exporter creates:
 - a readable main PDF
 - a `*_TECH.pdf` report
+- optionally, an Excel workbook with structured conversation data
 
 The main report is generic. The TECH report can be importer-specific. Threema has its own dedicated TECH report. WhatsApp currently uses the generic fallback TECH report.
 
@@ -30,7 +31,7 @@ For Windows, use the standalone desktop app from the [Releases page](https://git
 ```powershell
 python -m pip install -e .
 python -m pip install pyinstaller
-.\packaging\windows\build_gui.ps1
+powershell -ExecutionPolicy Bypass -File .\packaging\windows\build_gui.ps1 -Clean
 ```
 
 The EXE is written to `dist\<timestamp>\ChatExportPDF.exe`.
@@ -74,6 +75,8 @@ In the selected output directory, the exporter creates:
 - `conversations/`
   - one readable PDF per conversation
   - one `*_TECH.pdf` per conversation
+- `excel/`
+  - one `.xlsx` workbook per conversation if Excel export is enabled
 - `media/`
   - extracted attachments per conversation if media export is enabled
 
@@ -113,6 +116,12 @@ WhatsApp ZIP with multiple plausible text files:
 
 ```bash
 python -m chat_export --source whatsapp --input-path "./WhatsApp Chat - Max Mustermann.zip" --chat-text-name "_chat.txt" --out-dir "./export"
+```
+
+Optional Excel export:
+
+```bash
+python -m chat_export --source whatsapp --input-path "./WhatsApp-Chat mit Max Mustermann.zip" --out-dir "./export" --excel
 ```
 
 The preferred CLI entry points are:
@@ -155,6 +164,9 @@ The preferred CLI entry points are:
 
 - `--no-image-previews`
   Disable inline image previews in the normal PDF export. By default, image previews are enabled when image attachments are available.
+
+- `--excel`
+  Also export each conversation as an Excel workbook. PDFs are still generated.
 
 - `--max-media-bytes N`
   Skip media blobs larger than `N` bytes. `0` disables the limit.

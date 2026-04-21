@@ -20,7 +20,7 @@ datas = []
 binaries = []
 hiddenimports = []
 
-for package in ("reportlab", "PIL", "emoji", "tzdata"):
+for package in ("reportlab", "PIL", "xlsxwriter", "emoji", "tzdata"):
     package_datas, package_binaries, package_hiddenimports = _collect_optional(package)
     datas += package_datas
     binaries += package_binaries

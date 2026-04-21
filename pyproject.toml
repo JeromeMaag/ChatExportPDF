@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chat-export-pdf"
-version = "0.6.0"
+version = "0.6.1"
 description = "Export chat conversations from multiple sources to PDFs with optional media extraction"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,6 +13,7 @@ authors = [{name = "Jerome Maag" }]
 dependencies = [
   "Pillow>=10.0.0",
   "reportlab>=4.0.0",
+  "XlsxWriter>=3.2.0",
   "emoji>=2.0.0",
   "tzdata>=2023.3; platform_system=='Windows'",
 ]
