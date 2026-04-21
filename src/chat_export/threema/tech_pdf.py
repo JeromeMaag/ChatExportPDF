@@ -13,12 +13,12 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote
 
-from importlib.metadata import PackageNotFoundError, version as pkg_version
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from .. import __version__
 from ..common.textutil import esc_xml, normalize_for_pdf
 from ..common.timeutil import format_dt
 from ..common.util import blob_prefix_hex, relpath_for_link
@@ -60,18 +60,12 @@ class ThreemaTechnicalConversation:
 
 
 def exporter_version() -> str:
-    """Return the installed exporter package version.
+    """Return the exporter package version.
 
     Returns:
-        str: Installed package version, ``dev`` for editable local runs, or
-        ``unknown`` on unexpected lookup errors.
+        str: Runtime package version.
     """
-    try:
-        return pkg_version("chat-export-pdf")
-    except PackageNotFoundError:
-        return "dev"
-    except Exception:
-        return "unknown"
+    return __version__
 
 
 def conv_type(conv: Conversation) -> str:
@@ -572,7 +566,7 @@ def build_threema_tech_pdf(tech: ThreemaTechnicalConversation, pdf_path: str) ->
     story.append(p(f"ChatExportPDF - {esc_xml(tech.chat_title)}", h1))
     story.append(
         p(
-            f"<font color='#666666'>Exporter: ChatExportPDF v{esc_xml(exporter_version())}</font>",
+            f"<font color='#666666'>Exporter: ChatExportPDF {esc_xml(exporter_version())}</font>",
             normal,
         )
     )

@@ -90,6 +90,9 @@ def build_export_config(
 
     if effective_source != SOURCE_APP_THREEMA:
         effective_external_folder = None
+        effective_db_path = None
+        if not effective_input_path:
+            raise ValueError("input_path must not be empty for non-Threema sources.")
 
     effective_out_dir = out_dir.strip()
     if not effective_out_dir:

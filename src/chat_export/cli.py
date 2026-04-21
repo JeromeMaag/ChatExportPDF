@@ -132,24 +132,23 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.max_media_bytes > 0:
         log.info("Will skip media blobs larger than %d bytes", args.max_media_bytes)
 
-    cfg = build_export_config(
-        out_dir=args.out_dir,
-        source_app=args.source,
-        input_path=args.input_path,
-        db_path=args.db_path,
-        chat_text_name=args.chat_text_name,
-        external_folder=args.external_folder,
-        tz_name=args.tz,
-        export_media=not args.no_media,
-        export_image_previews=not args.no_image_previews,
-        max_media_bytes=args.max_media_bytes,
-        limit_conversations=args.limit_conversations,
-        limit_messages=args.limit_messages,
-        log_level=args.log_level,
-        log_file=args.log_file,
-    )
-
     try:
+        cfg = build_export_config(
+            out_dir=args.out_dir,
+            source_app=args.source,
+            input_path=args.input_path,
+            db_path=args.db_path,
+            chat_text_name=args.chat_text_name,
+            external_folder=args.external_folder,
+            tz_name=args.tz,
+            export_media=not args.no_media,
+            export_image_previews=not args.no_image_previews,
+            max_media_bytes=args.max_media_bytes,
+            limit_conversations=args.limit_conversations,
+            limit_messages=args.limit_messages,
+            log_level=args.log_level,
+            log_file=args.log_file,
+        )
         res = export_all_conversations(cfg)
     except Exception as e:
         log.exception("Export failed: %s", e)
