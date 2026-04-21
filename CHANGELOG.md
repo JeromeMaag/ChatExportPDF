@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0] - 2026-04-21
+### Added
+- Added a Windows desktop GUI.
+- Added PyInstaller packaging for a standalone `ChatExportPDF.exe`.
+
+### Changed
+- Shared CLI and GUI configuration parsing through a common config factory.
+
 ## [0.5.1] - 2026-04-08
 ### Changed
 - Restored sender, timestamp, message type, and status in the normal chat bubble header.

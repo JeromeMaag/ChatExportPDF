@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chat-export-pdf"
-version = "0.5.1"
+version = "0.6.0"
 description = "Export chat conversations from multiple sources to PDFs with optional media extraction"
 readme = "README.md"
 requires-python = ">=3.10"
