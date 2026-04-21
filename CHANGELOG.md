@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.6.1] - 2026-04-21
+### Added
+- Added optional Excel workbook export with overview, participant, message, and attachment sheets.
+
 ## [0.6.0] - 2026-04-21
 ### Added
 - Added a Windows desktop GUI.

@@ -65,6 +65,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Disable inline image previews in the normal PDF export",
     )
     p.add_argument(
+        "--excel",
+        action="store_true",
+        help="Also export each conversation as an Excel workbook",
+    )
+    p.add_argument(
         "--max-media-bytes",
         type=int,
         default=0,
@@ -113,10 +118,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     log.debug("Parsed CLI args: %s", vars(args))
     log.info("Starting export source=%s tz=%s", args.source, args.tz)
     log.debug(
-        "Export options source=%s media=%s image_previews=%s max_media_bytes=%s limit_conversations=%s limit_messages=%s log_file=%s chat_text_name=%s",
+        "Export options source=%s media=%s image_previews=%s excel=%s max_media_bytes=%s limit_conversations=%s limit_messages=%s log_file=%s chat_text_name=%s",
         args.source,
         not args.no_media,
         not args.no_image_previews,
+        args.excel,
         args.max_media_bytes,
         args.limit_conversations,
         args.limit_messages,
@@ -129,6 +135,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         log.info("Media export disabled by --no-media flag")
     if args.no_image_previews:
         log.info("Inline image previews disabled by --no-image-previews flag")
+    if args.excel:
+        log.info("Excel export enabled")
     if args.max_media_bytes > 0:
         log.info("Will skip media blobs larger than %d bytes", args.max_media_bytes)
 
@@ -143,6 +151,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             tz_name=args.tz,
             export_media=not args.no_media,
             export_image_previews=not args.no_image_previews,
+            export_excel=args.excel,
             max_media_bytes=args.max_media_bytes,
             limit_conversations=args.limit_conversations,
             limit_messages=args.limit_messages,

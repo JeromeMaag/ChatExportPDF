@@ -49,6 +49,7 @@ def build_export_config(
     tz_name: Optional[str] = None,
     export_media: bool = True,
     export_image_previews: bool = True,
+    export_excel: bool = False,
     max_media_bytes: int = 0,
     limit_conversations: int = 0,
     limit_messages: int = 0,
@@ -67,6 +68,7 @@ def build_export_config(
         tz_name (Optional[str]): Optional timezone override.
         export_media (bool): Enable media export.
         export_image_previews (bool): Enable inline image previews.
+        export_excel (bool): Enable additional Excel workbook export.
         max_media_bytes (int): Maximum media size in bytes. ``0`` disables the limit.
         limit_conversations (int): Conversation limit. ``0`` disables the limit.
         limit_messages (int): Message limit per conversation. ``0`` disables the limit.
@@ -108,6 +110,7 @@ def build_export_config(
         tz_name=effective_tz_name,
         export_media=export_media,
         export_image_previews=export_image_previews,
+        export_excel=export_excel,
         max_media_bytes=max_media_bytes,
         limit_conversations=limit_conversations,
         limit_messages=limit_messages,

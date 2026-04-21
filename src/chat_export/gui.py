@@ -107,6 +107,7 @@ class ChatExportGui:
         self.tz_var = tk.StringVar(value=DEFAULT_TIMEZONE)
         self.export_media_var = tk.BooleanVar(value=True)
         self.export_image_previews_var = tk.BooleanVar(value=True)
+        self.export_excel_var = tk.BooleanVar(value=False)
         self.max_media_bytes_var = tk.StringVar(value="0")
         self.limit_conversations_var = tk.StringVar(value="0")
         self.limit_messages_var = tk.StringVar(value="0")
@@ -173,7 +174,13 @@ class ChatExportGui:
             text="Image previews",
             variable=self.export_image_previews_var,
         )
-        self.image_preview_check.grid(row=0, column=1, sticky="w")
+        self.image_preview_check.grid(row=0, column=1, sticky="w", padx=(0, 16))
+        self.excel_check = ttk.Checkbutton(
+            options_row,
+            text="Excel export",
+            variable=self.export_excel_var,
+        )
+        self.excel_check.grid(row=0, column=2, sticky="w")
 
         ttk.Label(
             basic,
@@ -503,6 +510,7 @@ class ChatExportGui:
             tz_name=self.tz_var.get(),
             export_media=self.export_media_var.get(),
             export_image_previews=self.export_image_previews_var.get(),
+            export_excel=self.export_excel_var.get(),
             max_media_bytes=parse_non_negative_int(
                 self.max_media_bytes_var.get(),
                 "Max media bytes",
@@ -538,6 +546,7 @@ class ChatExportGui:
             self.chat_text_entry,
             self.export_media_check,
             self.image_preview_check,
+            self.excel_check,
             self.log_file_browse_button,
             self.run_button,
             self.advanced_button,

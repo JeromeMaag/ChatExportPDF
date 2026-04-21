@@ -29,6 +29,7 @@ class ExportConfig:
         tz_name (str): IANA timezone name for rendered timestamps.
         export_media (bool): Enable attachment export.
         export_image_previews (bool): Enable inline image previews in the normal PDF.
+        export_excel (bool): Enable additional Excel workbook export.
         max_media_bytes (int): Maximum exported media size in bytes. ``0`` disables the limit.
         limit_conversations (int): Maximum number of exported conversations. ``0`` disables the limit.
         limit_messages (int): Maximum number of exported messages per conversation. ``0`` disables the limit.
@@ -46,6 +47,7 @@ class ExportConfig:
 
     export_media: bool = True
     export_image_previews: bool = True
+    export_excel: bool = False
     max_media_bytes: int = 0
 
     limit_conversations: int = 0
