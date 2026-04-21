@@ -20,7 +20,6 @@ from .. import __version__
 from ..normalized.models import (
     NormalizedAttachment,
     NormalizedConversation,
-    NormalizedMessage,
 )
 
 log = logging.getLogger(__name__)
