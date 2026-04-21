@@ -10,7 +10,8 @@ import logging
 from typing import Optional
 
 from .common.logging_setup import setup_logging
-from .config import ExportConfig
+from .config_factory import build_export_config
+from .constants import DEFAULT_SOURCE_APP, DEFAULT_TIMEZONE, LOG_LEVELS, SOURCE_APPS
 from .orchestrator import export_all_conversations
 
 
@@ -26,7 +27,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--source",
-        default="threema",
+        default=DEFAULT_SOURCE_APP,
+        choices=SOURCE_APPS,
         help="Source app / importer to use (currently supported: threema, whatsapp)",
     )
     p.add_argument(
@@ -52,7 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--tz",
-        default="Europe/Zurich",
+        default=DEFAULT_TIMEZONE,
         help="Timezone for rendering timestamps (default: Europe/Zurich)",
     )
 
@@ -83,7 +85,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     p.add_argument(
-        "--log-level", default="INFO", help="Log level (DEBUG/INFO/WARNING/ERROR)"
+        "--log-level",
+        default="INFO",
+        choices=LOG_LEVELS,
+        help="Log level (DEBUG/INFO/WARNING/ERROR)",
     )
     p.add_argument("--log-file", default=None, help="Optional log file path")
     return p
@@ -127,24 +132,23 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.max_media_bytes > 0:
         log.info("Will skip media blobs larger than %d bytes", args.max_media_bytes)
 
-    cfg = ExportConfig(
-        out_dir=args.out_dir,
-        source_app=args.source,
-        input_path=args.input_path,
-        db_path=args.db_path,
-        chat_text_name=args.chat_text_name,
-        external_folder=args.external_folder,
-        tz_name=args.tz,
-        export_media=not args.no_media,
-        export_image_previews=not args.no_image_previews,
-        max_media_bytes=args.max_media_bytes,
-        limit_conversations=args.limit_conversations,
-        limit_messages=args.limit_messages,
-        log_level=args.log_level,
-        log_file=args.log_file,
-    )
-
     try:
+        cfg = build_export_config(
+            out_dir=args.out_dir,
+            source_app=args.source,
+            input_path=args.input_path,
+            db_path=args.db_path,
+            chat_text_name=args.chat_text_name,
+            external_folder=args.external_folder,
+            tz_name=args.tz,
+            export_media=not args.no_media,
+            export_image_previews=not args.no_image_previews,
+            max_media_bytes=args.max_media_bytes,
+            limit_conversations=args.limit_conversations,
+            limit_messages=args.limit_messages,
+            log_level=args.log_level,
+            log_file=args.log_file,
+        )
         res = export_all_conversations(cfg)
     except Exception as e:
         log.exception("Export failed: %s", e)

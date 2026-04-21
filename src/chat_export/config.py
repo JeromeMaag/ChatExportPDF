@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from .constants import DEFAULT_SOURCE_APP, DEFAULT_TIMEZONE
+
 log = logging.getLogger(__name__)
 
 
@@ -35,12 +37,12 @@ class ExportConfig:
     """
 
     out_dir: str
-    source_app: str = "threema"
+    source_app: str = DEFAULT_SOURCE_APP
     input_path: Optional[str] = None
     db_path: Optional[str] = None
     chat_text_name: Optional[str] = None
     external_folder: Optional[str] = None
-    tz_name: str = "Europe/Zurich"
+    tz_name: str = DEFAULT_TIMEZONE
 
     export_media: bool = True
     export_image_previews: bool = True
