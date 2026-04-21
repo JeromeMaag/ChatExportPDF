@@ -1,8 +1,8 @@
 """Write export-level traceability files.
 
-This module creates the first export-run summary artifacts. Phase 1 focuses on
-stable file creation and section structure; later phases can replace TODO
-placeholders with fully collected metadata.
+This module creates export-run summary artifacts. Early phases intentionally
+keep later metadata as TODO placeholders while already recording stable
+traceability details.
 """
 
 from __future__ import annotations
@@ -163,6 +163,10 @@ def _settings(cfg: ExportConfig, results: dict[str, Any] | None) -> dict[str, An
         "conversation_limit": cfg.limit_conversations,
         "message_limit": cfg.limit_messages,
         "max_media_bytes": cfg.max_media_bytes,
+        "log_level": cfg.log_level,
+        "log_file": LOG_FILENAME,
+        "chat_text_name": cfg.chat_text_name or "auto",
+        "external_folder_provided": bool(cfg.external_folder),
     }
 
 
@@ -172,10 +176,11 @@ def build_manifest(
     results: dict[str, Any] | None,
     started_at: datetime,
     finished_at: datetime,
+    generated_at: datetime,
     status: str,
     errors: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Build the phase-1 manifest dictionary."""
+    """Build the manifest dictionary."""
     out_dir = os.path.abspath(cfg.out_dir)
     return {
         "tool": {
@@ -190,9 +195,11 @@ def build_manifest(
             "description": "# TODO: add optional description/notes",
         },
         "export": {
+            "generated_at": _iso(generated_at),
             "started_at": _iso(started_at),
             "finished_at": _iso(finished_at),
             "duration_seconds": _duration_seconds(started_at, finished_at),
+            "timestamp_timezone": "UTC",
             "status": status,
         },
         "input": {
@@ -224,7 +231,7 @@ def build_summary_text(
     cfg: ExportConfig,
     manifest: dict[str, Any],
 ) -> str:
-    """Build the phase-1 human-readable export summary text."""
+    """Build the human-readable export summary text."""
     settings = manifest["settings"]
     counts = manifest["results"]
     output_counts = {
@@ -250,9 +257,11 @@ def build_summary_text(
         "",
         "Export Information",
         "------------------",
+        _line("Generated at", manifest["export"]["generated_at"]),
         _line("Export start time", manifest["export"]["started_at"]),
         _line("Export end time", manifest["export"]["finished_at"]),
         _line("Export duration seconds", manifest["export"]["duration_seconds"]),
+        _line("Timestamp timezone", manifest["export"]["timestamp_timezone"]),
         _line("Export status", manifest["export"]["status"]),
         "",
         "Case Information",
@@ -280,6 +289,10 @@ def build_summary_text(
         _line("Conversation limit", settings["conversation_limit"]),
         _line("Message limit", settings["message_limit"]),
         _line("Max media bytes", settings["max_media_bytes"]),
+        _line("Log level", settings["log_level"]),
+        _line("Log file", settings["log_file"]),
+        _line("Chat text name", settings["chat_text_name"]),
+        _line("External folder provided", settings["external_folder_provided"]),
         "",
         "Overall Result Counts",
         "---------------------",
@@ -379,6 +392,7 @@ def write_traceability_files(
         results=results,
         started_at=started_at,
         finished_at=finished_at,
+        generated_at=utc_now(),
         status=status,
         errors=errors,
     )

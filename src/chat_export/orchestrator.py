@@ -134,6 +134,10 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
         import_run = importer.load_conversations(cfg)
 
         results.update(import_run.metadata)
+        if import_run.conversations:
+            first_conversation = import_run.conversations[0].conversation
+            results.setdefault("time_mode", first_conversation.time_mode)
+            results.setdefault("timezone", first_conversation.timezone)
 
         total_conversations = len(import_run.conversations)
         for index, exported in enumerate(import_run.conversations, start=1):
