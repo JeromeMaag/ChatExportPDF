@@ -50,12 +50,12 @@ def _excel_timestamp(value: str | None) -> datetime | str:
 
 
 def _cell_value(value: object) -> object:
-    """Convert one value to an Excel-safe scalar."""
+    """Convert one value to an Excel-safe scalar without altering text data."""
     if value is None:
         return ""
     if isinstance(value, (datetime, int, float, bool)):
         return value
-    text = _strip_rendered_timezones(str(value))
+    text = str(value)
     if len(text) > MAX_CELL_TEXT:
         return text[: MAX_CELL_TEXT - 15] + "...[truncated]"
     return text
@@ -108,6 +108,13 @@ def _attachment_filename(attachment: NormalizedAttachment) -> str:
     return attachment.attachment_id
 
 
+def _quoted_preview_value(value: str | None) -> str | None:
+    """Remove generated timezone text from quoted preview timestamps only."""
+    if value is None:
+        return None
+    return _strip_rendered_timezones(value)
+
+
 def _attachment_count_by_kind(conversation: NormalizedConversation) -> dict[str, int]:
     """Count attachments by normalized attachment kind."""
     counts: dict[str, int] = {}
@@ -131,13 +138,16 @@ def _add_table(
     table_name: str,
     headers: list[str],
     rows: list[list[object]],
+    header_format,
 ) -> bool:
     """Add a worksheet table around headers and rows."""
     if not headers or not rows:
         return False
     last_row = max(0, len(rows))
     last_col = len(headers) - 1
-    columns = [{"header": header} for header in headers]
+    columns = [
+        {"header": header, "header_format": header_format} for header in headers
+    ]
     worksheet.add_table(
         0,
         0,
@@ -193,7 +203,7 @@ def _write_sheet(
                 fmt = text_format
             worksheet.write(row_index, col, _cell_value(value), fmt)
 
-    has_table = _add_table(worksheet, table_name, headers, rows)
+    has_table = _add_table(worksheet, table_name, headers, rows, header_format)
     worksheet.freeze_panes(1, 0)
     if not has_table:
         worksheet.autofilter(0, 0, max(len(rows), 1), len(headers) - 1)
@@ -202,7 +212,7 @@ def _write_sheet(
         width = widths.get(col)
         if width is None:
             samples = [headers[col]] + [
-                str(row[col]) for row in rows[:200] if col < len(row)
+                str(_cell_value(row[col])) for row in rows[:200] if col < len(row)
             ]
             width = min(
                 max(max((len(sample) for sample in samples), default=10) + 2, 10), 55
@@ -311,7 +321,7 @@ def _message_rows(conversation: NormalizedConversation) -> list[list[object]]:
                 message.status,
                 message.caption,
                 message.quoted_message_ref,
-                message.quoted_preview,
+                _quoted_preview_value(message.quoted_preview),
                 len(message.attachments),
                 _join(
                     _attachment_filename(attachment)
@@ -344,7 +354,7 @@ def _attachment_rows(conversation: NormalizedConversation) -> list[list[object]]
                     _excel_timestamp(message.timestamp),
                     message.sender_display,
                     attachment.kind,
-                    attachment.filename,
+                    _attachment_filename(attachment),
                     attachment.relative_path,
                     attachment.mime_type,
                     attachment.size,
