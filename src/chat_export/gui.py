@@ -81,8 +81,9 @@ class ChatExportGui:
 
         self._log_queue: queue.Queue[str] = queue.Queue()
         self._result_queue: queue.Queue[GuiResult] = queue.Queue()
-        self._log_handler = QueueLogHandler(self._log_queue)
         self._running = False
+        self._closing = False
+        self._poll_after_id: str | None = None
         self._auto_out_dir = True
         self._last_auto_out_dir = ""
         self._updating_out_dir = False
@@ -93,7 +94,8 @@ class ChatExportGui:
         self._bind_events()
         self._refresh_source_fields()
         self._sync_auto_output_dir()
-        self.root.after(100, self._poll_queues)
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        self._schedule_poll()
 
     def _build_variables(self) -> None:
         """Create Tkinter state variables."""
@@ -430,23 +432,48 @@ class ChatExportGui:
         self.log_text.see("end")
         self.log_text.configure(state="disabled")
 
+    def _schedule_poll(self) -> None:
+        """Schedule the next GUI queue poll."""
+        if self._closing:
+            return
+        self._poll_after_id = self.root.after(100, self._poll_queues)
+
+    def _on_close(self) -> None:
+        """Stop GUI polling and close the window."""
+        self._closing = True
+        if self._poll_after_id is not None:
+            try:
+                self.root.after_cancel(self._poll_after_id)
+            except tk.TclError:
+                pass
+            self._poll_after_id = None
+        self.root.destroy()
+
     def _poll_queues(self) -> None:
         """Poll log and result queues from the worker thread."""
-        while True:
-            try:
-                line = self._log_queue.get_nowait()
-            except queue.Empty:
-                break
-            self._append_log_line(line)
+        self._poll_after_id = None
+        if self._closing:
+            return
+        try:
+            while True:
+                try:
+                    line = self._log_queue.get_nowait()
+                except queue.Empty:
+                    break
+                self._append_log_line(line)
 
-        while True:
-            try:
-                result = self._result_queue.get_nowait()
-            except queue.Empty:
-                break
-            self._handle_result(result)
+            while True:
+                try:
+                    result = self._result_queue.get_nowait()
+                except queue.Empty:
+                    break
+                self._handle_result(result)
+        except tk.TclError:
+            self._closing = True
+            return
 
-        self.root.after(100, self._poll_queues)
+        self._schedule_poll()
+
 
     def _build_config(self) -> ExportConfig:
         """Build one export configuration from GUI state.
@@ -536,7 +563,7 @@ class ChatExportGui:
                 cfg.log_level,
                 cfg.log_file,
                 console=False,
-                extra_handlers=[self._log_handler],
+                extra_handlers=[QueueLogHandler(self._log_queue)],
                 replace_existing=True,
             )
             result = export_all_conversations(cfg)

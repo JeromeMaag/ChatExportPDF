@@ -23,22 +23,22 @@ if (-not $WorkPath) {
 
 Push-Location $projectRoot
 try {
-    $args = @(
+    $pyinstallerArgs = @(
         "-m", "PyInstaller",
         "--noconfirm",
         "--distpath", $buildDistPath,
         "--workpath", $WorkPath
     )
     if ($Clean) {
-        $args += "--clean"
+        $pyinstallerArgs += "--clean"
     }
-    $args += $specPath
+    $pyinstallerArgs += $specPath
 
     Write-Host "Building standalone GUI from $specPath"
     Write-Host "Build dist path: $buildDistPath"
     Write-Host "Final dist path: $DistPath"
     Write-Host "Work path: $WorkPath"
-    & $PythonExe @args
+    & $PythonExe @pyinstallerArgs
 
     $builtExePath = Join-Path $buildDistPath "ChatExportPDF.exe"
     if (-not (Test-Path $builtExePath)) {
