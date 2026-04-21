@@ -1,0 +1,395 @@
+"""Write export-level traceability files.
+
+This module creates the first export-run summary artifacts. Phase 1 focuses on
+stable file creation and section structure; later phases can replace TODO
+placeholders with fully collected metadata.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+from datetime import datetime, timezone
+from typing import Any
+
+from . import __version__
+from .common.logging_setup import sanitize_local_paths
+from .config import ExportConfig
+
+TOOL_NAME = "ChatExportPDF"
+REPOSITORY_URL = "https://github.com/JeromeMaag/ChatExportPDF"
+EXPORT_SUMMARY_FILENAME = "export_summary.txt"
+MANIFEST_FILENAME = "manifest.json"
+LOG_FILENAME = "log.txt"
+
+
+def default_log_file(out_dir: str) -> str:
+    """Return the default export log path inside the selected output folder."""
+    return os.path.join(out_dir, LOG_FILENAME)
+
+
+def utc_now() -> datetime:
+    """Return the current UTC timestamp."""
+    return datetime.now(timezone.utc)
+
+
+def _iso(value: datetime | None) -> str | None:
+    """Convert a timestamp to ISO-8601 text."""
+    if value is None:
+        return None
+    return value.astimezone(timezone.utc).isoformat()
+
+
+def _duration_seconds(started_at: datetime, finished_at: datetime) -> float:
+    """Return elapsed seconds between two timestamps."""
+    return round((finished_at - started_at).total_seconds(), 3)
+
+
+def _relpath(path: str | None, out_dir: str) -> str | None:
+    """Return a safe relative path for an output artifact."""
+    if not path:
+        return None
+    abs_out = os.path.abspath(out_dir)
+    abs_path = os.path.abspath(path)
+    try:
+        common = os.path.commonpath([abs_out, abs_path])
+    except ValueError:
+        return os.path.basename(path)
+    if common != abs_out:
+        return os.path.basename(path)
+    return os.path.relpath(abs_path, abs_out).replace(os.sep, "/")
+
+
+def _input_filename(cfg: ExportConfig) -> str:
+    """Return only the input filename, never the full local path."""
+    try:
+        path = cfg.resolved_input_path()
+    except Exception:
+        return "# TODO: input filename unavailable until config validation succeeds"
+    return os.path.basename(path)
+
+
+def _conversation_entries(
+    results: dict[str, Any] | None,
+    out_dir: str,
+) -> list[dict[str, Any]]:
+    """Build phase-1 conversation summary entries."""
+    entries: list[dict[str, Any]] = []
+    for item in (results or {}).get("exported", []):
+        generated_files = [
+            _relpath(item.get("pdf_path"), out_dir),
+            _relpath(item.get("pdf_tech_path"), out_dir),
+            _relpath(item.get("xlsx_path"), out_dir),
+        ]
+        entries.append(
+            {
+                "title": item.get("title"),
+                "conversation_id": item.get("conversation_id"),
+                "conversation_type": "# TODO: collect conversation type",
+                "participant_count": "# TODO: collect participant count",
+                "message_count": item.get("message_count"),
+                "attachment_count": "# TODO: collect attachment count",
+                "generated_files": [path for path in generated_files if path],
+            }
+        )
+    return entries
+
+
+def _generated_file_entries(
+    results: dict[str, Any] | None,
+    out_dir: str,
+) -> list[dict[str, Any]]:
+    """Build phase-1 generated file entries with TODO metadata placeholders."""
+    entries: list[dict[str, Any]] = []
+    file_fields = (
+        ("normal_pdf", "pdf_path"),
+        ("tech_pdf", "pdf_tech_path"),
+        ("excel_workbook", "xlsx_path"),
+    )
+    for item in (results or {}).get("exported", []):
+        for file_type, key in file_fields:
+            rel_path = _relpath(item.get(key), out_dir)
+            if not rel_path:
+                continue
+            entries.append(
+                {
+                    "type": file_type,
+                    "path": rel_path,
+                    "size_bytes": "# TODO: calculate generated file size",
+                    "md5": "# TODO: calculate generated file MD5",
+                    "sha256": "# TODO: calculate generated file SHA256",
+                }
+            )
+    media_dir = os.path.join(out_dir, "media")
+    if os.path.isdir(media_dir):
+        for root, _, filenames in os.walk(media_dir):
+            for filename in sorted(filenames):
+                path = os.path.join(root, filename)
+                entries.append(
+                    {
+                        "type": "media_file",
+                        "path": _relpath(path, out_dir),
+                        "size_bytes": "# TODO: calculate generated file size",
+                        "md5": "# TODO: calculate generated file MD5",
+                        "sha256": "# TODO: calculate generated file SHA256",
+                    }
+                )
+    return entries
+
+
+def _overall_counts(results: dict[str, Any] | None) -> dict[str, Any]:
+    """Build phase-1 overall count values."""
+    exported = (results or {}).get("exported", [])
+    return {
+        "conversation_count": len(exported),
+        "message_count": sum(item.get("message_count") or 0 for item in exported),
+        "participant_count": "# TODO: collect participant count",
+        "attachment_count": "# TODO: collect attachment count",
+        "missing_media_count": "# TODO: collect missing media count",
+        "skipped_media_count": "# TODO: collect skipped media count",
+        "unparseable_message_count": "# TODO: collect unparseable message/line count",
+    }
+
+
+def _settings(cfg: ExportConfig, results: dict[str, Any] | None) -> dict[str, Any]:
+    """Build export setting values for summary files."""
+    return {
+        "selected_source": cfg.source_app,
+        "timezone": cfg.tz_name,
+        "time_mode": (results or {}).get("time_mode", "unknown"),
+        "media_export_enabled": cfg.export_media,
+        "image_previews_enabled": cfg.export_image_previews,
+        "excel_export_enabled": cfg.export_excel,
+        "conversation_limit": cfg.limit_conversations,
+        "message_limit": cfg.limit_messages,
+        "max_media_bytes": cfg.max_media_bytes,
+    }
+
+
+def build_manifest(
+    cfg: ExportConfig,
+    *,
+    results: dict[str, Any] | None,
+    started_at: datetime,
+    finished_at: datetime,
+    status: str,
+    errors: list[str] | None = None,
+) -> dict[str, Any]:
+    """Build the phase-1 manifest dictionary."""
+    out_dir = os.path.abspath(cfg.out_dir)
+    return {
+        "tool": {
+            "name": TOOL_NAME,
+            "version": __version__,
+            "repository_url": REPOSITORY_URL,
+        },
+        "case": {
+            "case_number": "# TODO: add optional case number",
+            "examiner": "# TODO: add optional examiner",
+            "organization": "# TODO: add optional organization/unit",
+            "description": "# TODO: add optional description/notes",
+        },
+        "export": {
+            "started_at": _iso(started_at),
+            "finished_at": _iso(finished_at),
+            "duration_seconds": _duration_seconds(started_at, finished_at),
+            "status": status,
+        },
+        "input": {
+            "filename": _input_filename(cfg),
+            "size_bytes": "# TODO: calculate input file size",
+            "md5": "# TODO: calculate input file MD5",
+            "sha256": "# TODO: calculate input file SHA256",
+        },
+        "settings": _settings(cfg, results),
+        "results": _overall_counts(results),
+        "conversations": _conversation_entries(results, out_dir),
+        "files": _generated_file_entries(results, out_dir),
+        "warnings": ["# TODO: collect structured warnings from export run"],
+        "errors": [sanitize_local_paths(error) for error in (errors or [])],
+        "notes": [
+            "This manifest documents processing of the provided input data.",
+            "It does not validate origin, authenticity, or completeness of the source.",
+            "All paths are intended to be relative to the selected output directory.",
+        ],
+    }
+
+
+def _line(label: str, value: Any) -> str:
+    """Format one summary line."""
+    return f"{label}: {value if value not in (None, '') else '-'}"
+
+
+def build_summary_text(
+    cfg: ExportConfig,
+    manifest: dict[str, Any],
+) -> str:
+    """Build the phase-1 human-readable export summary text."""
+    settings = manifest["settings"]
+    counts = manifest["results"]
+    output_counts = {
+        "normal_pdf": 0,
+        "tech_pdf": 0,
+        "excel_workbook": 0,
+        "media_file": 0,
+    }
+    for entry in manifest["files"]:
+        file_type = entry.get("type")
+        if file_type in output_counts:
+            output_counts[file_type] += 1
+
+    lines = [
+        "ChatExportPDF Export Summary",
+        "============================",
+        "",
+        "Tool Information",
+        "----------------",
+        _line("Tool name", manifest["tool"]["name"]),
+        _line("Tool version", manifest["tool"]["version"]),
+        _line("Repository URL", manifest["tool"]["repository_url"]),
+        "",
+        "Export Information",
+        "------------------",
+        _line("Export start time", manifest["export"]["started_at"]),
+        _line("Export end time", manifest["export"]["finished_at"]),
+        _line("Export duration seconds", manifest["export"]["duration_seconds"]),
+        _line("Export status", manifest["export"]["status"]),
+        "",
+        "Case Information",
+        "----------------",
+        _line("Case number", manifest["case"]["case_number"]),
+        _line("Examiner", manifest["case"]["examiner"]),
+        _line("Organization / unit", manifest["case"]["organization"]),
+        _line("Description / notes", manifest["case"]["description"]),
+        "",
+        "Input Information",
+        "-----------------",
+        _line("Input filename", manifest["input"]["filename"]),
+        _line("Input file size", manifest["input"]["size_bytes"]),
+        _line("Input MD5", manifest["input"]["md5"]),
+        _line("Input SHA256", manifest["input"]["sha256"]),
+        "",
+        "Export Settings",
+        "---------------",
+        _line("Selected source", settings["selected_source"]),
+        _line("Timezone", settings["timezone"]),
+        _line("Time mode", settings["time_mode"]),
+        _line("Media export enabled", settings["media_export_enabled"]),
+        _line("Image previews enabled", settings["image_previews_enabled"]),
+        _line("Excel export enabled", settings["excel_export_enabled"]),
+        _line("Conversation limit", settings["conversation_limit"]),
+        _line("Message limit", settings["message_limit"]),
+        _line("Max media bytes", settings["max_media_bytes"]),
+        "",
+        "Overall Result Counts",
+        "---------------------",
+        _line("Number of conversations", counts["conversation_count"]),
+        _line("Number of messages", counts["message_count"]),
+        _line("Number of participants", counts["participant_count"]),
+        _line("Number of attachments", counts["attachment_count"]),
+        _line("Number of missing media files", counts["missing_media_count"]),
+        _line("Number of skipped media files", counts["skipped_media_count"]),
+        _line(
+            "Number of unparseable messages / lines",
+            counts["unparseable_message_count"],
+        ),
+        "",
+        "Generated Output",
+        "----------------",
+        _line("Number of normal PDFs", output_counts["normal_pdf"]),
+        _line("Number of TECH PDFs", output_counts["tech_pdf"]),
+        _line("Number of Excel workbooks", output_counts["excel_workbook"]),
+        _line("Number of exported media files", output_counts["media_file"]),
+        "",
+        "Conversation Summaries",
+        "----------------------",
+    ]
+
+    if manifest["conversations"]:
+        for index, conversation in enumerate(manifest["conversations"], start=1):
+            lines.extend(
+                [
+                    f"{index}. {conversation.get('title') or '-'}",
+                    f"   Conversation ID: {conversation.get('conversation_id') or '-'}",
+                    f"   Conversation type: {conversation.get('conversation_type') or '-'}",
+                    f"   Participants: {conversation.get('participant_count') or '-'}",
+                    f"   Messages: {conversation.get('message_count') or '-'}",
+                    f"   Attachments: {conversation.get('attachment_count') or '-'}",
+                    "   Generated files:",
+                ]
+            )
+            generated_files = conversation.get("generated_files") or []
+            if generated_files:
+                lines.extend(f"   - {path}" for path in generated_files)
+            else:
+                lines.append("   - # TODO: collect generated files")
+            lines.append("")
+    else:
+        lines.append("# TODO: collect conversation summaries")
+        lines.append("")
+
+    lines.extend(
+        [
+            "Warnings and Errors",
+            "-------------------",
+            "Warnings:",
+        ]
+    )
+    warnings = manifest.get("warnings") or []
+    lines.extend(f"- {warning}" for warning in warnings)
+    lines.append("Errors:")
+    errors = manifest.get("errors") or []
+    if errors:
+        lines.extend(f"- {error}" for error in errors)
+    else:
+        lines.append("- none recorded")
+
+    lines.extend(
+        [
+            "",
+            "Log",
+            "---",
+            f"Full export log: {LOG_FILENAME}",
+            "",
+            "Important Note",
+            "--------------",
+            "This report documents processing of the provided input data.",
+            "It does not validate origin, authenticity, or completeness of the source.",
+            "No absolute local paths should be included in this summary.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def write_traceability_files(
+    cfg: ExportConfig,
+    *,
+    results: dict[str, Any] | None,
+    started_at: datetime,
+    finished_at: datetime,
+    status: str,
+    errors: list[str] | None = None,
+) -> dict[str, str]:
+    """Write export_summary.txt and manifest.json for one export run."""
+    out_dir = os.path.abspath(cfg.out_dir)
+    os.makedirs(out_dir, exist_ok=True)
+    manifest = build_manifest(
+        cfg,
+        results=results,
+        started_at=started_at,
+        finished_at=finished_at,
+        status=status,
+        errors=errors,
+    )
+    summary_path = os.path.join(out_dir, EXPORT_SUMMARY_FILENAME)
+    manifest_path = os.path.join(out_dir, MANIFEST_FILENAME)
+    with open(summary_path, "w", encoding="utf-8") as handle:
+        handle.write(build_summary_text(cfg, manifest))
+    with open(manifest_path, "w", encoding="utf-8") as handle:
+        json.dump(manifest, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    return {
+        "export_summary_path": summary_path,
+        "manifest_path": manifest_path,
+    }

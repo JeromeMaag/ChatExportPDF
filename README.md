@@ -179,6 +179,3 @@ The preferred CLI entry points are:
 
 - `--log-level LEVEL`
   Logging verbosity. Allowed values: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
-
-- `--log-file PATH`
-  Write logs additionally to a file.

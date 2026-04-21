@@ -11,6 +11,7 @@ from typing import Optional
 
 from .config import ExportConfig
 from .constants import DEFAULT_TIMEZONE, SOURCE_APP_THREEMA
+from .export_summary import default_log_file
 
 
 def parse_non_negative_int(raw_value: str, field_name: str) -> int:
@@ -54,7 +55,6 @@ def build_export_config(
     limit_conversations: int = 0,
     limit_messages: int = 0,
     log_level: str = "INFO",
-    log_file: Optional[str] = None,
 ) -> ExportConfig:
     """Build one ``ExportConfig`` from normalized raw values.
 
@@ -73,7 +73,6 @@ def build_export_config(
         limit_conversations (int): Conversation limit. ``0`` disables the limit.
         limit_messages (int): Message limit per conversation. ``0`` disables the limit.
         log_level (str): Logging level name.
-        log_file (Optional[str]): Optional log file path.
 
     Returns:
         ExportConfig: Runtime export configuration.
@@ -83,7 +82,6 @@ def build_export_config(
     effective_chat_text_name = chat_text_name.strip() if chat_text_name else None
     effective_external_folder = external_folder.strip() if external_folder else None
     effective_log_level = log_level.strip() or "INFO"
-    effective_log_file = log_file.strip() if log_file else None
     effective_tz_name = (tz_name or "").strip() or DEFAULT_TIMEZONE
     effective_db_path = db_path.strip() if db_path else None
 
@@ -99,6 +97,7 @@ def build_export_config(
     effective_out_dir = out_dir.strip()
     if not effective_out_dir:
         raise ValueError("out_dir must not be empty or whitespace-only.")
+    effective_log_file = default_log_file(effective_out_dir)
 
     return ExportConfig(
         out_dir=effective_out_dir,

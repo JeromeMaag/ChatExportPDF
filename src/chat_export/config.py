@@ -34,7 +34,7 @@ class ExportConfig:
         limit_conversations (int): Maximum number of exported conversations. ``0`` disables the limit.
         limit_messages (int): Maximum number of exported messages per conversation. ``0`` disables the limit.
         log_level (str): Logging level name.
-        log_file (Optional[str]): Optional log file path.
+        log_file (Optional[str]): Export log file path. Defaults to ``log.txt`` in the output directory.
     """
 
     out_dir: str

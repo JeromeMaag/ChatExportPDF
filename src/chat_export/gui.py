@@ -22,7 +22,13 @@ from . import __version__
 from .common.logging_setup import LOG_FORMAT, setup_logging
 from .config import ExportConfig
 from .config_factory import build_export_config, parse_non_negative_int
-from .constants import DEFAULT_SOURCE_APP, DEFAULT_TIMEZONE, LOG_LEVELS, SOURCE_APPS, SOURCE_APP_THREEMA
+from .constants import (
+    DEFAULT_SOURCE_APP,
+    DEFAULT_TIMEZONE,
+    LOG_LEVELS,
+    SOURCE_APPS,
+    SOURCE_APP_THREEMA,
+)
 from .orchestrator import export_all_conversations
 
 
@@ -112,7 +118,6 @@ class ChatExportGui:
         self.limit_conversations_var = tk.StringVar(value="0")
         self.limit_messages_var = tk.StringVar(value="0")
         self.log_level_var = tk.StringVar(value="INFO")
-        self.log_file_var = tk.StringVar()
         self.show_advanced_var = tk.BooleanVar(value=False)
         self.status_var = tk.StringVar(value="Ready")
         self.source_hint_var = tk.StringVar()
@@ -249,14 +254,6 @@ class ChatExportGui:
             state="readonly",
         ).grid(row=5, column=1, columnspan=2, sticky="ew", padx=(0, 8), pady=6)
 
-        ttk.Label(self.advanced_frame, text="Log file").grid(row=6, column=0, sticky="w", padx=(8, 8), pady=(6, 8))
-        ttk.Entry(self.advanced_frame, textvariable=self.log_file_var).grid(
-            row=6, column=1, sticky="ew", padx=(0, 8), pady=(6, 8)
-        )
-        self.log_file_browse_button = ttk.Button(self.advanced_frame, text="Browse...", command=self._browse_log_file)
-        self.log_file_browse_button.grid(
-            row=6, column=2, sticky="ew", padx=(0, 8), pady=(6, 8)
-        )
         self.advanced_frame.grid_remove()
 
         log_frame = ttk.LabelFrame(outer, text="Log")
@@ -367,18 +364,6 @@ class ChatExportGui:
         )
         if selected:
             self.external_folder_var.set(selected)
-
-    def _browse_log_file(self) -> None:
-        """Open the optional log file picker."""
-        initial_dir = self._input_parent_dir() or os.getcwd()
-        selected = filedialog.asksaveasfilename(
-            title="Select log file",
-            initialdir=initial_dir,
-            defaultextension=".log",
-            filetypes=[("Log file", "*.log"), ("All files", "*.*")],
-        )
-        if selected:
-            self.log_file_var.set(selected)
 
     def _input_parent_dir(self) -> str:
         """Return the current input file parent directory.
@@ -524,7 +509,6 @@ class ChatExportGui:
                 "Limit messages",
             ),
             log_level=self.log_level_var.get(),
-            log_file=self.log_file_var.get(),
         )
 
     def _set_running(self, running: bool) -> None:
@@ -547,7 +531,6 @@ class ChatExportGui:
             self.export_media_check,
             self.image_preview_check,
             self.excel_check,
-            self.log_file_browse_button,
             self.run_button,
             self.advanced_button,
         ):
@@ -568,11 +551,12 @@ class ChatExportGui:
             cfg (ExportConfig): Export configuration.
         """
         try:
+            extra_handlers: list[logging.Handler] = [QueueLogHandler(self._log_queue)]
             setup_logging(
                 cfg.log_level,
                 cfg.log_file,
                 console=False,
-                extra_handlers=[QueueLogHandler(self._log_queue)],
+                extra_handlers=extra_handlers,
                 replace_existing=True,
             )
             result = export_all_conversations(cfg)

@@ -6,10 +6,39 @@ and full handler replacement for repeated setup calls.
 """
 
 import logging
+import re
 from pathlib import Path
 from typing import Iterable, Optional
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+WINDOWS_ABSOLUTE_PATH_IN_QUOTES_RE = re.compile(r'(?<=")[A-Za-z]:\\[^"\r\n]+')
+WINDOWS_ABSOLUTE_PATH_AFTER_EQUALS_RE = re.compile(r"(?<==)[A-Za-z]:\\[^\r\n,)]*")
+WINDOWS_ABSOLUTE_PATH_RE = re.compile(r"[A-Za-z]:\\[^\s\r\n,)]*")
+
+
+def sanitize_local_paths(text: str) -> str:
+    """Replace local absolute Windows paths in text."""
+    sanitized = WINDOWS_ABSOLUTE_PATH_IN_QUOTES_RE.sub("<local-path>", text)
+    sanitized = WINDOWS_ABSOLUTE_PATH_AFTER_EQUALS_RE.sub("<local-path>", sanitized)
+    return WINDOWS_ABSOLUTE_PATH_RE.sub("<local-path>", sanitized)
+
+
+class LocalPathSanitizingFormatter(logging.Formatter):
+    """Format log records while hiding local absolute Windows paths."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format one record and replace local absolute paths."""
+        return sanitize_local_paths(super().format(record))
+
+
+def build_file_handler(log_file: str, level: str | int = "INFO") -> logging.FileHandler:
+    """Create a sanitized file log handler."""
+    lvl = getattr(logging, str(level).upper(), level)
+    Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(log_file, encoding="utf-8")
+    handler.setLevel(lvl)
+    handler.setFormatter(LocalPathSanitizingFormatter(LOG_FORMAT))
+    return handler
 
 
 def setup_logging(
@@ -45,13 +74,13 @@ def setup_logging(
     if console:
         managed_handlers.append(logging.StreamHandler())
     if log_file:
-        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
-        managed_handlers.append(logging.FileHandler(log_file, encoding="utf-8"))
+        managed_handlers.append(build_file_handler(log_file, lvl))
 
     formatter = logging.Formatter(LOG_FORMAT)
     for handler in managed_handlers:
         handler.setLevel(lvl)
-        handler.setFormatter(formatter)
+        if not isinstance(handler, logging.FileHandler):
+            handler.setFormatter(formatter)
 
     root_logger.setLevel(lvl)
     for handler in managed_handlers:

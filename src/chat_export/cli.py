@@ -95,7 +95,6 @@ def build_parser() -> argparse.ArgumentParser:
         choices=LOG_LEVELS,
         help="Log level (DEBUG/INFO/WARNING/ERROR)",
     )
-    p.add_argument("--log-file", default=None, help="Optional log file path")
     return p
 
 
@@ -113,33 +112,6 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    setup_logging(args.log_level, args.log_file)
-    log = logging.getLogger("chat_export")
-    log.debug("Parsed CLI args: %s", vars(args))
-    log.info("Starting export source=%s tz=%s", args.source, args.tz)
-    log.debug(
-        "Export options source=%s media=%s image_previews=%s excel=%s max_media_bytes=%s limit_conversations=%s limit_messages=%s log_file=%s chat_text_name=%s",
-        args.source,
-        not args.no_media,
-        not args.no_image_previews,
-        args.excel,
-        args.max_media_bytes,
-        args.limit_conversations,
-        args.limit_messages,
-        args.log_file,
-        args.chat_text_name,
-    )
-    if args.source == "threema" and not args.external_folder:
-        log.warning("No --external-folder specified, media export may be incomplete")
-    if args.no_media:
-        log.info("Media export disabled by --no-media flag")
-    if args.no_image_previews:
-        log.info("Inline image previews disabled by --no-image-previews flag")
-    if args.excel:
-        log.info("Excel export enabled")
-    if args.max_media_bytes > 0:
-        log.info("Will skip media blobs larger than %d bytes", args.max_media_bytes)
-
     try:
         cfg = build_export_config(
             out_dir=args.out_dir,
@@ -156,8 +128,40 @@ def main(argv: Optional[list[str]] = None) -> int:
             limit_conversations=args.limit_conversations,
             limit_messages=args.limit_messages,
             log_level=args.log_level,
-            log_file=args.log_file,
         )
+    except Exception as e:
+        setup_logging(args.log_level)
+        log = logging.getLogger("chat_export")
+        log.exception("Export configuration failed: %s", e)
+        return 1
+
+    setup_logging(cfg.log_level, cfg.log_file)
+    log = logging.getLogger("chat_export")
+    log.debug("Parsed CLI args: %s", vars(args))
+    log.info("Starting export source=%s tz=%s", args.source, args.tz)
+    log.debug(
+        "Export options source=%s media=%s image_previews=%s excel=%s max_media_bytes=%s limit_conversations=%s limit_messages=%s chat_text_name=%s",
+        args.source,
+        not args.no_media,
+        not args.no_image_previews,
+        args.excel,
+        args.max_media_bytes,
+        args.limit_conversations,
+        args.limit_messages,
+        args.chat_text_name,
+    )
+    if args.source == "threema" and not args.external_folder:
+        log.warning("No --external-folder specified, media export may be incomplete")
+    if args.no_media:
+        log.info("Media export disabled by --no-media flag")
+    if args.no_image_previews:
+        log.info("Inline image previews disabled by --no-image-previews flag")
+    if args.excel:
+        log.info("Excel export enabled")
+    if args.max_media_bytes > 0:
+        log.info("Will skip media blobs larger than %d bytes", args.max_media_bytes)
+
+    try:
         res = export_all_conversations(cfg)
     except Exception as e:
         log.exception("Export failed: %s", e)

@@ -14,6 +14,7 @@ from typing import Any, Dict
 from .common.util import ensure_dir, safe_filename
 from .config import ExportConfig
 from .constants import SOURCE_APP_THREEMA, SOURCE_APP_WHATSAPP
+from .export_summary import utc_now, write_traceability_files
 from .importers.base import ConversationImporter, ImportedConversation
 from .render.excel_builder import build_conversation_xlsx
 from .render.pdf_builder import build_conversation_pdf, build_fallback_tech_pdf
@@ -86,131 +87,154 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Run metadata and per-conversation output file paths.
     """
-    cfg.validate()
-    input_path = cfg.resolved_input_path()
-    log.info("Starting orchestration source=%s", cfg.source_app)
-
+    started_at = utc_now()
+    finished_at = started_at
+    status = "Failed"
+    errors: list[str] = []
     out_dir = os.path.abspath(cfg.out_dir)
-    conv_out = os.path.join(out_dir, "conversations")
-    ensure_dir(conv_out)
-
-    media_out = None
-    if cfg.export_media:
-        media_out = os.path.join(out_dir, "media")
-        ensure_dir(media_out)
-
-    excel_out = None
-    if cfg.export_excel:
-        excel_out = os.path.join(out_dir, "excel")
-        ensure_dir(excel_out)
-
-    log.debug(
-        "Ensured output directories source=%s input=%s conversations=%s media=%s excel=%s",
-        cfg.source_app,
-        input_path,
-        conv_out,
-        media_out,
-        excel_out,
-    )
-
-    importer = get_importer(cfg.source_app)
-    log.info(
-        "Selected importer source=%s importer=%s",
-        cfg.source_app,
-        importer.__class__.__name__,
-    )
-    import_run = importer.load_conversations(cfg)
-
     results: Dict[str, Any] = {
         "source_app": cfg.source_app,
         "out_dir": out_dir,
         "exported": [],
     }
-    results.update(import_run.metadata)
 
-    total_conversations = len(import_run.conversations)
-    for index, exported in enumerate(import_run.conversations, start=1):
-        log.info(
-            "Rendering conversation source=%s index=%s/%s messages=%s",
+    try:
+        cfg.validate()
+        input_path = cfg.resolved_input_path()
+        log.info("Starting orchestration source=%s", cfg.source_app)
+
+        conv_out = os.path.join(out_dir, "conversations")
+        ensure_dir(conv_out)
+
+        media_out = None
+        if cfg.export_media:
+            media_out = os.path.join(out_dir, "media")
+            ensure_dir(media_out)
+
+        excel_out = None
+        if cfg.export_excel:
+            excel_out = os.path.join(out_dir, "excel")
+            ensure_dir(excel_out)
+
+        log.debug(
+            "Ensured output directories source=%s input=%s conversations=%s media=%s excel=%s",
             cfg.source_app,
-            index,
-            total_conversations,
-            len(exported.conversation.messages),
+            input_path,
+            conv_out,
+            media_out,
+            excel_out,
         )
-        if log.isEnabledFor(logging.DEBUG):
-            attachment_count = sum(
-                len(message.attachments) for message in exported.conversation.messages
-            )
-            log.debug(
-                "Rendering conversation details source=%s index=%s/%s conversation_id=%s title=%s attachments=%s",
+
+        importer = get_importer(cfg.source_app)
+        log.info(
+            "Selected importer source=%s importer=%s",
+            cfg.source_app,
+            importer.__class__.__name__,
+        )
+        import_run = importer.load_conversations(cfg)
+
+        results.update(import_run.metadata)
+
+        total_conversations = len(import_run.conversations)
+        for index, exported in enumerate(import_run.conversations, start=1):
+            log.info(
+                "Rendering conversation source=%s index=%s/%s messages=%s",
                 cfg.source_app,
                 index,
                 total_conversations,
-                exported.conversation.conversation_id,
-                exported.conversation.title,
-                attachment_count,
+                len(exported.conversation.messages),
             )
-        safe_title = safe_filename(exported.conversation.title)
-        source_identifier = _source_identifier(exported)
-        pdf_path = os.path.join(conv_out, f"conv_{source_identifier}_{safe_title}.pdf")
-        pdf_tech_path = os.path.join(
-            conv_out,
-            f"conv_{source_identifier}_{safe_title}_TECH.pdf",
-        )
-        xlsx_path = (
-            os.path.join(excel_out, f"conv_{source_identifier}_{safe_title}.xlsx")
-            if excel_out
-            else None
-        )
+            if log.isEnabledFor(logging.DEBUG):
+                attachment_count = sum(
+                    len(message.attachments) for message in exported.conversation.messages
+                )
+                log.debug(
+                    "Rendering conversation details source=%s index=%s/%s conversation_id=%s title=%s attachments=%s",
+                    cfg.source_app,
+                    index,
+                    total_conversations,
+                    exported.conversation.conversation_id,
+                    exported.conversation.title,
+                    attachment_count,
+                )
+            safe_title = safe_filename(exported.conversation.title)
+            source_identifier = _source_identifier(exported)
+            pdf_path = os.path.join(conv_out, f"conv_{source_identifier}_{safe_title}.pdf")
+            pdf_tech_path = os.path.join(
+                conv_out,
+                f"conv_{source_identifier}_{safe_title}_TECH.pdf",
+            )
+            xlsx_path = (
+                os.path.join(excel_out, f"conv_{source_identifier}_{safe_title}.xlsx")
+                if excel_out
+                else None
+            )
 
-        build_conversation_pdf(
-            exported.conversation,
-            pdf_path,
-            include_image_previews=cfg.export_image_previews,
-        )
-        log.debug(
-            "Rendered conversation PDF conversation_id=%s path=%s",
-            exported.conversation.conversation_id,
-            pdf_path,
-        )
-        _build_tech_pdf(exported, pdf_tech_path)
-        log.debug(
-            "Rendered TECH PDF conversation_id=%s path=%s renderer=%s",
-            exported.conversation.conversation_id,
-            pdf_tech_path,
-            exported.tech_renderer or "fallback",
-        )
-        if xlsx_path:
-            build_conversation_xlsx(exported.conversation, xlsx_path)
+            build_conversation_pdf(
+                exported.conversation,
+                pdf_path,
+                include_image_previews=cfg.export_image_previews,
+            )
             log.debug(
-                "Rendered Excel workbook conversation_id=%s path=%s",
+                "Rendered conversation PDF conversation_id=%s path=%s",
                 exported.conversation.conversation_id,
-                xlsx_path,
+                pdf_path,
+            )
+            _build_tech_pdf(exported, pdf_tech_path)
+            log.debug(
+                "Rendered TECH PDF conversation_id=%s path=%s renderer=%s",
+                exported.conversation.conversation_id,
+                pdf_tech_path,
+                exported.tech_renderer or "fallback",
+            )
+            if xlsx_path:
+                build_conversation_xlsx(exported.conversation, xlsx_path)
+                log.debug(
+                    "Rendered Excel workbook conversation_id=%s path=%s",
+                    exported.conversation.conversation_id,
+                    xlsx_path,
+                )
+
+            results["exported"].append(
+                {
+                    "conversation_id": exported.conversation.conversation_id,
+                    "title": exported.conversation.title,
+                    "pdf_path": pdf_path,
+                    "pdf_tech_path": pdf_tech_path,
+                    "xlsx_path": xlsx_path,
+                    "media_dir": exported.metadata.get("media_dir"),
+                    "message_count": exported.metadata.get(
+                        "message_count", len(exported.conversation.messages)
+                    ),
+                }
             )
 
-        results["exported"].append(
-            {
-                "conversation_id": exported.conversation.conversation_id,
-                "title": exported.conversation.title,
-                "pdf_path": pdf_path,
-                "pdf_tech_path": pdf_tech_path,
-                "xlsx_path": xlsx_path,
-                "media_dir": exported.metadata.get("media_dir"),
-                "message_count": exported.metadata.get("message_count", len(exported.conversation.messages)),
-            }
-        )
+            log.info(
+                "Exported conversation source=%s index=%s/%s",
+                cfg.source_app,
+                index,
+                total_conversations,
+            )
 
+        status = "Completed"
         log.info(
-            "Exported conversation source=%s index=%s/%s",
+            "Completed orchestration source=%s exported=%s",
             cfg.source_app,
-            index,
-            total_conversations,
+            len(results["exported"]),
         )
-
-    log.info(
-        "Completed orchestration source=%s exported=%s",
-        cfg.source_app,
-        len(results["exported"]),
-    )
-    log.debug("Completed orchestration output_dir=%s", out_dir)
-    return results
+        log.debug("Completed orchestration output_dir=%s", out_dir)
+        return results
+    except Exception as exc:
+        errors.append(str(exc) or exc.__class__.__name__)
+        raise
+    finally:
+        finished_at = utc_now()
+        trace_paths = write_traceability_files(
+            cfg,
+            results=results,
+            started_at=started_at,
+            finished_at=finished_at,
+            status=status,
+            errors=errors,
+        )
+        results.update(trace_paths)
