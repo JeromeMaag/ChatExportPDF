@@ -1,6 +1,6 @@
 # ChatExportPDF
 
-This project exports chat data from different messenger sources into PDF reports.
+ChatExportPDF exports chat data from messenger sources into PDF reports.
 
 Current sources:
 - `threema` (iOS only)
@@ -11,6 +11,29 @@ For each conversation, the exporter creates:
 - a `*_TECH.pdf` report
 
 The main report is generic. The TECH report can be importer-specific. Threema has its own dedicated TECH report. WhatsApp currently uses the generic fallback TECH report.
+
+## Desktop GUI
+
+For Windows, use the standalone desktop app from the [Releases page](https://github.com/JeromeMaag/ChatExportPDF/releases).
+
+1. Download `ChatExportPDF.exe`.
+2. Start the EXE. No Python installation is required.
+3. Select the source:
+   - `threema`: choose `ThreemaData.sqlite`; optionally choose `_EXTERNAL_DATA`.
+   - `whatsapp`: choose the exported WhatsApp `.zip`.
+4. Choose or keep the suggested output folder.
+5. Start the export.
+
+
+### Build the EXE Yourself (Windows only)
+
+```powershell
+python -m pip install -e .
+python -m pip install pyinstaller
+.\packaging\windows\build_gui.ps1
+```
+
+The EXE is written to `dist\<timestamp>\ChatExportPDF.exe`.
 
 ## Supported Inputs
 
@@ -46,7 +69,7 @@ If a WhatsApp ZIP contains multiple plausible `.txt` files, the exporter does no
 
 ## Output
 
-In `--out-dir` the exporter creates:
+In the selected output directory, the exporter creates:
 
 - `conversations/`
   - one readable PDF per conversation
@@ -54,7 +77,10 @@ In `--out-dir` the exporter creates:
 - `media/`
   - extracted attachments per conversation if media export is enabled
 
-## Installation
+## Command Line Usage
+
+
+### Installation
 
 Requirements:
 - Python `3.10` or newer
@@ -66,9 +92,6 @@ From the repository root, install the project:
 python -m pip install -e .
 ```
 
-Optional: use a virtual environment if you do not want to install the dependencies into your global Python environment.
-
-## Usage
 
 ### Threema
 
@@ -92,32 +115,9 @@ WhatsApp ZIP with multiple plausible text files:
 python -m chat_export --source whatsapp --input-path "./WhatsApp Chat - Max Mustermann.zip" --chat-text-name "_chat.txt" --out-dir "./export"
 ```
 
-The preferred entry points are:
+The preferred CLI entry points are:
 - `chat-export ...`
 - `python -m chat_export ...`
-
-### Desktop GUI
-
-A simple Windows GUI is also available.
-
-It supports:
-- `threema` and `whatsapp`
-- source-specific path fields
-- basic and advanced options
-- live log output inside the window
-- default output folders next to the selected input file
-
-A pre-built standalone EXE is attached to each release on the [Releases page](https://github.com/JeromeMaag/ChatExportPDF/releases).
-Just download `ChatExportPDF.exe` and run it — no Python installation required.
-
-**Build the EXE yourself** (Windows, requires Python and PyInstaller):
-
-```powershell
-pip install pyinstaller
-.\packaging\windows\build_gui.ps1
-```
-
-The EXE is written to `dist\<timestamp>\ChatExportPDF.exe` inside the repository root.
 
 ## Command Line Options
 
