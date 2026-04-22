@@ -6,21 +6,43 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+WINDOWS_DRIVE_PATH_QUOTED_RE = re.compile(r'(?<=")[A-Za-z]:(?:[\\/][^"\r\n]*)+')
+WINDOWS_DRIVE_PATH_SINGLE_QUOTED_RE = re.compile(
+    r"(?<=')[A-Za-z]:(?:[\\/][^'\r\n]*)+"
+)
+WINDOWS_DRIVE_PATH_AFTER_EQUALS_RE = re.compile(
+    r"(?<==)[A-Za-z]:(?:[\\/]).*?(?=(?:\s+[A-Za-z_]+=)|$|[,)'\"])"
+)
+WINDOWS_DRIVE_PATH_AFTER_COLON_RE = re.compile(
+    r"(?<=:\s)[A-Za-z]:(?:[\\/]).*?(?=(?:\s+[A-Za-z_]+=)|$|[,)'\"])"
+)
+WINDOWS_DRIVE_PATH_RE = re.compile(r"[A-Za-z]:(?:[\\/][^\"'\s\r\n,)]*)+")
 WINDOWS_LOCAL_PATH_IN_QUOTES_RE = re.compile(
-    r'(?<=")(?:[A-Za-z]:\\[^"\r\n]*|\\\\[^"\r\n]*)'
+    r'(?<=")\\\\[^"\r\n]*'
+)
+WINDOWS_LOCAL_PATH_SINGLE_QUOTED_RE = re.compile(
+    r"(?<=')\\\\[^'\r\n]*"
 )
 WINDOWS_LOCAL_PATH_AFTER_EQUALS_RE = re.compile(
-    r'(?<==)(?:[A-Za-z]:\\[^"\r\n,)]*|\\\\[^"\r\n,)]*)'
+    r"(?<==)\\\\.*?(?=(?:\s+[A-Za-z_]+=)|$|[,)'\"])"
 )
-WINDOWS_LOCAL_PATH_RE = re.compile(
-    r'(?:[A-Za-z]:\\[^"\s\r\n,)]*|\\\\[^"\s\r\n,)]*)'
+WINDOWS_LOCAL_PATH_AFTER_COLON_RE = re.compile(
+    r"(?<=:\s)\\\\.*?(?=(?:\s+[A-Za-z_]+=)|$|[,)'\"])"
 )
+WINDOWS_LOCAL_PATH_RE = re.compile(r"\\\\[^\"'\s\r\n,)]*")
 
 
 def sanitize_local_paths(text: str) -> str:
     """Redact local Windows paths in text."""
-    sanitized = WINDOWS_LOCAL_PATH_IN_QUOTES_RE.sub("<local-path>", text)
+    sanitized = WINDOWS_DRIVE_PATH_QUOTED_RE.sub("<local-path>", text)
+    sanitized = WINDOWS_DRIVE_PATH_SINGLE_QUOTED_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_DRIVE_PATH_AFTER_EQUALS_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_DRIVE_PATH_AFTER_COLON_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_DRIVE_PATH_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_LOCAL_PATH_IN_QUOTES_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_LOCAL_PATH_SINGLE_QUOTED_RE.sub("<local-path>", sanitized)
     sanitized = WINDOWS_LOCAL_PATH_AFTER_EQUALS_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_LOCAL_PATH_AFTER_COLON_RE.sub("<local-path>", sanitized)
     return WINDOWS_LOCAL_PATH_RE.sub("<local-path>", sanitized)
 
 
@@ -72,7 +94,7 @@ def setup_logging(
     if log_file:
         managed_handlers.append(build_file_handler(log_file, file_lvl))
 
-    formatter = logging.Formatter(LOG_FORMAT)
+    formatter = LocalPathSanitizingFormatter(LOG_FORMAT)
     for handler in managed_handlers:
         if not isinstance(handler, logging.FileHandler):
             handler.setFormatter(formatter)

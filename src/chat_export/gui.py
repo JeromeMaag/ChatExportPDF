@@ -13,7 +13,7 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 from typing import Any, Optional
 
 from . import __version__
-from .common.logging_setup import LOG_FORMAT, setup_logging
+from .common.logging_setup import LOG_FORMAT, LocalPathSanitizingFormatter, setup_logging
 from .config import ExportConfig
 from .config_factory import build_export_config, parse_non_negative_int
 from .constants import (
@@ -37,7 +37,7 @@ class QueueLogHandler(logging.Handler):
         super().__init__()
         self._target_queue = target_queue
         self.setLevel(logging.INFO)
-        self.setFormatter(logging.Formatter(LOG_FORMAT))
+        self.setFormatter(LocalPathSanitizingFormatter(LOG_FORMAT))
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit one formatted log record into the queue.

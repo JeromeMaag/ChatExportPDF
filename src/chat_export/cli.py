@@ -6,7 +6,7 @@ import logging
 import sys
 from typing import Optional
 
-from .common.logging_setup import setup_logging
+from .common.logging_setup import sanitize_local_paths, setup_logging
 from .config_factory import build_export_config
 from .constants import DEFAULT_SOURCE_APP, DEFAULT_TIMEZONE, SOURCE_APPS
 from .orchestrator import export_all_conversations
@@ -158,7 +158,10 @@ def main(argv: Optional[list[str]] = None) -> int:
             log = logging.getLogger("chat_export")
             log.error("Failed to initialize file logging: %s", e)
         except Exception:
-            print(f"Failed to initialize logging: {e}", file=sys.stderr)
+            print(
+                f"Failed to initialize logging: {sanitize_local_paths(str(e))}",
+                file=sys.stderr,
+            )
         return 1
 
     log = logging.getLogger("chat_export")
@@ -204,7 +207,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     print("Detected time_mode:", res.get("time_mode", "unknown"))
     print("External index entries:", res.get("external_index_entries", 0))
     print("Conversations exported:", len(res["exported"]))
-    print("Output dir:", res["out_dir"])
+    print("Output dir:", sanitize_local_paths(res["out_dir"]))
     if res.get("status") == "Failed":
         return 1
     return 0
