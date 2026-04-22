@@ -1,8 +1,7 @@
 """Write export-level traceability files.
 
-This module creates export-run summary artifacts. Early phases intentionally
-keep later metadata as TODO placeholders while already recording stable
-traceability details.
+This module creates export-run summary artifacts. Some metadata intentionally
+remains as TODO placeholders until the corresponding collection code exists.
 """
 
 from __future__ import annotations
@@ -23,6 +22,30 @@ EXPORT_SUMMARY_FILENAME = "export_summary.txt"
 MANIFEST_FILENAME = "manifest.json"
 LOG_FILENAME = "log.txt"
 HASH_CHUNK_SIZE = 1024 * 1024
+
+
+def _create_md5_fingerprint_hasher() -> Any | None:
+    """Create an MD5 hasher for non-security file fingerprinting."""
+    try:
+        return hashlib.md5(usedforsecurity=False)
+    except TypeError:
+        try:
+            return hashlib.md5()
+        except Exception:
+            return None
+    except Exception:
+        return None
+
+
+def _update_optional_hasher(hasher: Any | None, chunk: bytes) -> Any | None:
+    """Update one optional hasher and disable it on hashing errors."""
+    if hasher is None:
+        return None
+    try:
+        hasher.update(chunk)
+    except Exception:
+        return None
+    return hasher
 
 
 def default_log_file(out_dir: str) -> str:
@@ -47,18 +70,18 @@ def _duration_seconds(started_at: datetime, finished_at: datetime) -> float:
     return round((finished_at - started_at).total_seconds(), 3)
 
 
-def _hash_file(path: str) -> tuple[str, str]:
-    """Return MD5 and SHA-256 hashes for one file."""
-    md5 = hashlib.md5()
+def _hash_file(path: str) -> tuple[str | None, str]:
+    """Return optional MD5 and SHA-256 hashes for one file."""
+    md5 = _create_md5_fingerprint_hasher()
     sha256 = hashlib.sha256()
     with open(path, "rb") as handle:
         while True:
             chunk = handle.read(HASH_CHUNK_SIZE)
             if not chunk:
                 break
-            md5.update(chunk)
+            md5 = _update_optional_hasher(md5, chunk)
             sha256.update(chunk)
-    return md5.hexdigest(), sha256.hexdigest()
+    return md5.hexdigest() if md5 is not None else None, sha256.hexdigest()
 
 
 def _file_metadata(path: str | None) -> dict[str, Any]:
@@ -82,8 +105,12 @@ def _file_metadata(path: str | None) -> dict[str, Any]:
 
     try:
         metadata["size_bytes"] = os.path.getsize(path)
-        metadata["md5"], metadata["sha256"] = _hash_file(path)
     except OSError:
+        return metadata
+
+    try:
+        metadata["md5"], metadata["sha256"] = _hash_file(path)
+    except Exception:
         pass
     return metadata
 
