@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.0] - 2026-04-22
+### Added
+- Added `export_summary.txt`, `manifest.json`, and `log.txt` for every export run.
+- Added export-level counts, file inventory, input/output hashes, and optional case information to the traceability artifacts.
+
+### Changed
+- `log.txt` now always contains the full DEBUG log, while CLI output and the GUI live log stay at INFO and above.
+- Removed user-facing log level selection from the CLI and desktop GUI.
+
 ## [0.6.1] - 2026-04-21
 ### Added
 - Added optional Excel workbook export with overview, participant, message, and attachment sheets.

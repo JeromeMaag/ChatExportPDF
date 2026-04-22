@@ -1,36 +1,81 @@
-"""Configure application logging handlers and formatting.
-
-This module exposes the shared logging setup used by application entry points.
-It supports console logging, optional file logging, optional extra handlers,
-and full handler replacement for repeated setup calls.
-"""
+"""Configure shared application logging."""
 
 import logging
+import re
 from pathlib import Path
 from typing import Iterable, Optional
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+WINDOWS_DRIVE_PATH_QUOTED_RE = re.compile(r'(?<=")[A-Za-z]:(?:[\\/][^"\r\n]*)+')
+WINDOWS_DRIVE_PATH_SINGLE_QUOTED_RE = re.compile(
+    r"(?<=')[A-Za-z]:(?:[\\/][^'\r\n]*)+"
+)
+WINDOWS_DRIVE_PATH_AFTER_EQUALS_RE = re.compile(
+    r"(?<==)[A-Za-z]:(?:[\\/]).*?(?=(?:\s+[A-Za-z_]+=)|$|[,)'\"])"
+)
+WINDOWS_DRIVE_PATH_AFTER_COLON_RE = re.compile(
+    r"(?<=:\s)[A-Za-z]:(?:[\\/]).*?(?=(?:\s+[A-Za-z_]+=)|$|[,)'\"])"
+)
+WINDOWS_DRIVE_PATH_RE = re.compile(r"[A-Za-z]:(?:[\\/][^\"'\s\r\n,)]*)+")
+WINDOWS_LOCAL_PATH_IN_QUOTES_RE = re.compile(
+    r'(?<=")\\\\[^"\r\n]*'
+)
+WINDOWS_LOCAL_PATH_SINGLE_QUOTED_RE = re.compile(
+    r"(?<=')\\\\[^'\r\n]*"
+)
+WINDOWS_LOCAL_PATH_AFTER_EQUALS_RE = re.compile(
+    r"(?<==)\\\\.*?(?=(?:\s+[A-Za-z_]+=)|$|[,)'\"])"
+)
+WINDOWS_LOCAL_PATH_AFTER_COLON_RE = re.compile(
+    r"(?<=:\s)\\\\.*?(?=(?:\s+[A-Za-z_]+=)|$|[,)'\"])"
+)
+WINDOWS_LOCAL_PATH_RE = re.compile(r"\\\\[^\"'\s\r\n,)]*")
+
+
+def sanitize_local_paths(text: str) -> str:
+    """Redact local Windows paths in text."""
+    sanitized = WINDOWS_DRIVE_PATH_QUOTED_RE.sub("<local-path>", text)
+    sanitized = WINDOWS_DRIVE_PATH_SINGLE_QUOTED_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_DRIVE_PATH_AFTER_EQUALS_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_DRIVE_PATH_AFTER_COLON_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_DRIVE_PATH_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_LOCAL_PATH_IN_QUOTES_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_LOCAL_PATH_SINGLE_QUOTED_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_LOCAL_PATH_AFTER_EQUALS_RE.sub("<local-path>", sanitized)
+    sanitized = WINDOWS_LOCAL_PATH_AFTER_COLON_RE.sub("<local-path>", sanitized)
+    return WINDOWS_LOCAL_PATH_RE.sub("<local-path>", sanitized)
+
+
+class LocalPathSanitizingFormatter(logging.Formatter):
+    """Format log records with local path redaction."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format one record and redact local paths."""
+        return sanitize_local_paths(super().format(record))
+
+
+def build_file_handler(log_file: str, level: str | int = "DEBUG") -> logging.FileHandler:
+    """Create a file log handler with path redaction."""
+    lvl = getattr(logging, str(level).upper(), level)
+    Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(log_file, encoding="utf-8")
+    handler.setLevel(lvl)
+    handler.setFormatter(LocalPathSanitizingFormatter(LOG_FORMAT))
+    return handler
 
 
 def setup_logging(
-    level: str = "INFO",
     log_file: Optional[str] = None,
     *,
     console: bool = True,
     extra_handlers: Optional[Iterable[logging.Handler]] = None,
     replace_existing: bool = True,
+    console_level: str | int = "INFO",
+    file_level: str | int = "DEBUG",
 ) -> None:
-    """Configure root logging for one process run.
-
-    Args:
-        level (str): Log level name.
-        log_file (Optional[str]): Optional log file path.
-        console (bool): Add a console stream handler.
-        extra_handlers (Optional[Iterable[logging.Handler]]): Extra configured
-            handlers to attach.
-        replace_existing (bool): Remove existing root handlers before setup.
-    """
-    lvl = getattr(logging, level.upper(), logging.INFO)
+    """Configure root logging for one process run."""
+    console_lvl = getattr(logging, str(console_level).upper(), console_level)
+    file_lvl = getattr(logging, str(file_level).upper(), file_level)
     root_logger = logging.getLogger()
 
     if replace_existing:
@@ -43,17 +88,18 @@ def setup_logging(
 
     managed_handlers: list[logging.Handler] = []
     if console:
-        managed_handlers.append(logging.StreamHandler())
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(console_lvl)
+        managed_handlers.append(console_handler)
     if log_file:
-        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
-        managed_handlers.append(logging.FileHandler(log_file, encoding="utf-8"))
+        managed_handlers.append(build_file_handler(log_file, file_lvl))
 
-    formatter = logging.Formatter(LOG_FORMAT)
+    formatter = LocalPathSanitizingFormatter(LOG_FORMAT)
     for handler in managed_handlers:
-        handler.setLevel(lvl)
-        handler.setFormatter(formatter)
+        if not isinstance(handler, logging.FileHandler):
+            handler.setFormatter(formatter)
 
-    root_logger.setLevel(lvl)
+    root_logger.setLevel(logging.DEBUG)
     for handler in managed_handlers:
         root_logger.addHandler(handler)
     if extra_handlers:

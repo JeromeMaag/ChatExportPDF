@@ -1,9 +1,4 @@
-"""Define validated export configuration objects.
-
-This module contains the immutable runtime configuration used by importers,
-renderers, and the orchestrator. It also validates input paths and creates
-the top-level output directory.
-"""
+"""Define export configuration and validation."""
 
 import logging
 from dataclasses import dataclass
@@ -33,8 +28,11 @@ class ExportConfig:
         max_media_bytes (int): Maximum exported media size in bytes. ``0`` disables the limit.
         limit_conversations (int): Maximum number of exported conversations. ``0`` disables the limit.
         limit_messages (int): Maximum number of exported messages per conversation. ``0`` disables the limit.
-        log_level (str): Logging level name.
-        log_file (Optional[str]): Optional log file path.
+        log_file (Optional[str]): Export log file path. Defaults to ``log.txt`` in the output directory.
+        case_number (Optional[str]): Optional case/reference number for traceability artifacts.
+        examiner (Optional[str]): Optional examiner name or initials.
+        organization (Optional[str]): Optional organization or unit.
+        case_description (Optional[str]): Optional case notes or description.
     """
 
     out_dir: str
@@ -53,11 +51,15 @@ class ExportConfig:
     limit_conversations: int = 0
     limit_messages: int = 0
 
-    log_level: str = "INFO"
     log_file: Optional[str] = None
 
+    case_number: Optional[str] = None
+    examiner: Optional[str] = None
+    organization: Optional[str] = None
+    case_description: Optional[str] = None
+
     def resolved_input_path(self) -> str:
-        """Return the effective source input file path.
+        """Return the configured input file path.
 
         Returns:
             str: Resolved input file path from ``input_path`` or ``db_path``.
@@ -79,17 +81,19 @@ class ExportConfig:
         return path
 
     def validate(self) -> None:
-        """Validate configuration paths and create the output directory.
+        """Validate paths and create the output directory.
 
         Returns:
             None: This method validates in place.
 
         Raises:
-            ValueError: If ``source_app`` is empty.
+            ValueError: If ``source_app`` or ``out_dir`` is empty.
             FileNotFoundError: If the input file or external directory is missing.
         """
         if not self.source_app or not self.source_app.strip():
             raise ValueError("source_app must not be empty")
+        if not self.out_dir or not self.out_dir.strip():
+            raise ValueError("out_dir must not be empty")
         out = Path(self.out_dir)
         out.mkdir(parents=True, exist_ok=True)
 

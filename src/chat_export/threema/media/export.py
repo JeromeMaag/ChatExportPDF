@@ -1,9 +1,4 @@
-"""Export Threema media blobs to filesystem attachments.
-
-This module loads media blobs from the Threema database, resolves optional
-external pointer payloads, unwraps encoded file content, and writes exported
-attachments plus optional raw dumps.
-"""
+"""Export Threema media attachments."""
 
 from __future__ import annotations
 
@@ -161,6 +156,12 @@ def export_media_for_message(
                         "table": table,
                         "source_label": source_label,
                         "exported_path_abs": None,
+                        "exported_size": None,
+                        "exported_sha256": None,
+                        "skipped_due_to_limit": True,
+                        "skip_reason": (
+                            f"size={len(data)} exceeds max_media_bytes={max_media_bytes}"
+                        ),
                         "note": f"skipped size={len(data)}",
                     }
                 )

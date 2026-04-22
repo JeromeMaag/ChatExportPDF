@@ -72,6 +72,12 @@ If a WhatsApp ZIP contains multiple plausible `.txt` files, the exporter does no
 
 In the selected output directory, the exporter creates:
 
+- `export_summary.txt`
+  - human-readable run summary
+- `manifest.json`
+  - machine-readable run manifest with settings, counts, hashes, and generated files
+- `log.txt`
+  - full export log
 - `conversations/`
   - one readable PDF per conversation
   - one `*_TECH.pdf` per conversation
@@ -177,8 +183,15 @@ The preferred CLI entry points are:
 - `--limit-messages N`
   Process only the first `N` messages per conversation. `0` means all messages.
 
-- `--log-level LEVEL`
-  Logging verbosity. Allowed values: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
+- `--case-number TEXT`
+  Optional case or reference number written to `export_summary.txt` and `manifest.json`.
 
-- `--log-file PATH`
-  Write logs additionally to a file.
+- `--examiner TEXT`
+  Optional examiner name or initials written to `export_summary.txt` and `manifest.json`.
+
+- `--organization TEXT`
+  Optional organization or unit written to `export_summary.txt` and `manifest.json`.
+
+- `--case-description TEXT`
+  Optional case notes or description written to `export_summary.txt` and `manifest.json`.
+

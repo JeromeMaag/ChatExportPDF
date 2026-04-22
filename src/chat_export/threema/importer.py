@@ -1,9 +1,4 @@
-"""Load Threema SQLite data and normalize it for export.
-
-This module reads Threema conversations, messages, reactions, edit history,
-and media references from the source database. It then normalizes the data and
-builds the Threema-specific TECH payload.
-"""
+"""Load Threema exports from SQLite."""
 
 from __future__ import annotations
 
@@ -33,8 +28,28 @@ from .tech_pdf import ThreemaTechnicalConversation
 log = logging.getLogger(__name__)
 
 
+def _count_missing_media(media_index: Dict[int, List[Dict[str, Any]]]) -> int:
+    """Count media records whose external pointer could not be resolved."""
+    return sum(
+        1
+        for items in media_index.values()
+        for item in items
+        if item.get("pointer_uuid") and not item.get("external_path")
+    )
+
+
+def _count_skipped_media(media_index: Dict[int, List[Dict[str, Any]]]) -> int:
+    """Count media records skipped because of configured limits."""
+    return sum(
+        1
+        for items in media_index.values()
+        for item in items
+        if item.get("skipped_due_to_limit")
+    )
+
+
 class ThreemaImporter:
-    """Implement the importer contract for Threema SQLite exports."""
+    """Import Threema SQLite exports."""
 
     source_app = "threema"
 
@@ -81,6 +96,8 @@ class ThreemaImporter:
             media_root = os.path.join(os.path.abspath(cfg.out_dir), "media")
 
             imported: List[ImportedConversation] = []
+            total_missing_media_count = 0
+            total_skipped_media_count = 0
             for conv in conversations:
                 chat_title = build_conversation_title(conv, contacts)
                 log.info("Processing Threema conversation conv_pk=%s", conv.pk)
@@ -139,6 +156,10 @@ class ThreemaImporter:
                             media_item_count,
                             conv_media_dir,
                         )
+                missing_media_count = _count_missing_media(media_index)
+                skipped_media_count = _count_skipped_media(media_index)
+                total_missing_media_count += missing_media_count
+                total_skipped_media_count += skipped_media_count
 
                 reactions_by_message = {
                     message.pk: [dict(row) for row in load_reactions(conn, message.pk)]
@@ -195,6 +216,9 @@ class ThreemaImporter:
                             "conv_pk": conv.pk,
                             "message_count": len(messages),
                             "media_dir": os.path.abspath(conv_media_dir) if conv_media_dir else None,
+                            "missing_media_count": missing_media_count,
+                            "skipped_media_count": skipped_media_count,
+                            "unparseable_line_count": 0,
                         },
                     )
                 )
@@ -217,6 +241,9 @@ class ThreemaImporter:
                     if cfg.external_folder
                     else None,
                     "external_index_entries": len(external_index),
+                    "missing_media_count": total_missing_media_count,
+                    "skipped_media_count": total_skipped_media_count,
+                    "unparseable_line_count": 0,
                 },
             )
             log.info(

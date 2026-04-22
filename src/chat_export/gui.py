@@ -1,10 +1,4 @@
-"""Provide a simple desktop GUI for portable chat exports.
-
-This module exposes a Tkinter-based launcher for the existing export pipeline.
-It maps GUI fields to ``ExportConfig``, runs exports in a background thread,
-streams logs into the window, and is intended for packaging as a portable
-Windows executable.
-"""
+"""Provide the desktop GUI for chat exports."""
 
 from __future__ import annotations
 
@@ -19,15 +13,20 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 from typing import Any, Optional
 
 from . import __version__
-from .common.logging_setup import LOG_FORMAT, setup_logging
+from .common.logging_setup import LOG_FORMAT, LocalPathSanitizingFormatter, setup_logging
 from .config import ExportConfig
 from .config_factory import build_export_config, parse_non_negative_int
-from .constants import DEFAULT_SOURCE_APP, DEFAULT_TIMEZONE, LOG_LEVELS, SOURCE_APPS, SOURCE_APP_THREEMA
+from .constants import (
+    DEFAULT_SOURCE_APP,
+    DEFAULT_TIMEZONE,
+    SOURCE_APPS,
+    SOURCE_APP_THREEMA,
+)
 from .orchestrator import export_all_conversations
 
 
 class QueueLogHandler(logging.Handler):
-    """Push formatted log records into a GUI queue."""
+    """Forward formatted log records to a GUI queue."""
 
     def __init__(self, target_queue: "queue.Queue[str]") -> None:
         """Initialize the handler.
@@ -37,7 +36,8 @@ class QueueLogHandler(logging.Handler):
         """
         super().__init__()
         self._target_queue = target_queue
-        self.setFormatter(logging.Formatter(LOG_FORMAT))
+        self.setLevel(logging.INFO)
+        self.setFormatter(LocalPathSanitizingFormatter(LOG_FORMAT))
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit one formatted log record into the queue.
@@ -53,7 +53,7 @@ class QueueLogHandler(logging.Handler):
 
 @dataclass(slots=True)
 class GuiResult:
-    """Store the result of one GUI-triggered export run.
+    """Store the result of one GUI export run.
 
     Attributes:
         ok (bool): ``True`` on success.
@@ -111,8 +111,10 @@ class ChatExportGui:
         self.max_media_bytes_var = tk.StringVar(value="0")
         self.limit_conversations_var = tk.StringVar(value="0")
         self.limit_messages_var = tk.StringVar(value="0")
-        self.log_level_var = tk.StringVar(value="INFO")
-        self.log_file_var = tk.StringVar()
+        self.case_number_var = tk.StringVar()
+        self.examiner_var = tk.StringVar()
+        self.organization_var = tk.StringVar()
+        self.case_description_var = tk.StringVar()
         self.show_advanced_var = tk.BooleanVar(value=False)
         self.status_var = tk.StringVar(value="Ready")
         self.source_hint_var = tk.StringVar()
@@ -241,22 +243,94 @@ class ChatExportGui:
             row=4, column=1, columnspan=2, sticky="ew", padx=(0, 8), pady=6
         )
 
-        ttk.Label(self.advanced_frame, text="Log level").grid(row=5, column=0, sticky="w", padx=(8, 8), pady=6)
-        ttk.Combobox(
+        ttk.Separator(self.advanced_frame).grid(
+            row=5,
+            column=0,
+            columnspan=3,
+            sticky="ew",
+            padx=8,
+            pady=(8, 6),
+        )
+        ttk.Label(self.advanced_frame, text="Case number").grid(
+            row=6,
+            column=0,
+            sticky="w",
+            padx=(8, 8),
+            pady=6,
+        )
+        self.case_number_entry = ttk.Entry(
             self.advanced_frame,
-            textvariable=self.log_level_var,
-            values=LOG_LEVELS,
-            state="readonly",
-        ).grid(row=5, column=1, columnspan=2, sticky="ew", padx=(0, 8), pady=6)
+            textvariable=self.case_number_var,
+        )
+        self.case_number_entry.grid(
+            row=6,
+            column=1,
+            columnspan=2,
+            sticky="ew",
+            padx=(0, 8),
+            pady=6,
+        )
 
-        ttk.Label(self.advanced_frame, text="Log file").grid(row=6, column=0, sticky="w", padx=(8, 8), pady=(6, 8))
-        ttk.Entry(self.advanced_frame, textvariable=self.log_file_var).grid(
-            row=6, column=1, sticky="ew", padx=(0, 8), pady=(6, 8)
+        ttk.Label(self.advanced_frame, text="Examiner").grid(
+            row=7,
+            column=0,
+            sticky="w",
+            padx=(8, 8),
+            pady=6,
         )
-        self.log_file_browse_button = ttk.Button(self.advanced_frame, text="Browse...", command=self._browse_log_file)
-        self.log_file_browse_button.grid(
-            row=6, column=2, sticky="ew", padx=(0, 8), pady=(6, 8)
+        self.examiner_entry = ttk.Entry(
+            self.advanced_frame,
+            textvariable=self.examiner_var,
         )
+        self.examiner_entry.grid(
+            row=7,
+            column=1,
+            columnspan=2,
+            sticky="ew",
+            padx=(0, 8),
+            pady=6,
+        )
+
+        ttk.Label(self.advanced_frame, text="Organization / unit").grid(
+            row=8,
+            column=0,
+            sticky="w",
+            padx=(8, 8),
+            pady=6,
+        )
+        self.organization_entry = ttk.Entry(
+            self.advanced_frame,
+            textvariable=self.organization_var,
+        )
+        self.organization_entry.grid(
+            row=8,
+            column=1,
+            columnspan=2,
+            sticky="ew",
+            padx=(0, 8),
+            pady=6,
+        )
+
+        ttk.Label(self.advanced_frame, text="Description / notes").grid(
+            row=9,
+            column=0,
+            sticky="w",
+            padx=(8, 8),
+            pady=6,
+        )
+        self.case_description_entry = ttk.Entry(
+            self.advanced_frame,
+            textvariable=self.case_description_var,
+        )
+        self.case_description_entry.grid(
+            row=9,
+            column=1,
+            columnspan=2,
+            sticky="ew",
+            padx=(0, 8),
+            pady=(6, 8),
+        )
+
         self.advanced_frame.grid_remove()
 
         log_frame = ttk.LabelFrame(outer, text="Log")
@@ -367,18 +441,6 @@ class ChatExportGui:
         )
         if selected:
             self.external_folder_var.set(selected)
-
-    def _browse_log_file(self) -> None:
-        """Open the optional log file picker."""
-        initial_dir = self._input_parent_dir() or os.getcwd()
-        selected = filedialog.asksaveasfilename(
-            title="Select log file",
-            initialdir=initial_dir,
-            defaultextension=".log",
-            filetypes=[("Log file", "*.log"), ("All files", "*.*")],
-        )
-        if selected:
-            self.log_file_var.set(selected)
 
     def _input_parent_dir(self) -> str:
         """Return the current input file parent directory.
@@ -523,8 +585,10 @@ class ChatExportGui:
                 self.limit_messages_var.get(),
                 "Limit messages",
             ),
-            log_level=self.log_level_var.get(),
-            log_file=self.log_file_var.get(),
+            case_number=self.case_number_var.get(),
+            examiner=self.examiner_var.get(),
+            organization=self.organization_var.get(),
+            case_description=self.case_description_var.get(),
         )
 
     def _set_running(self, running: bool) -> None:
@@ -544,10 +608,13 @@ class ChatExportGui:
             self.external_entry,
             self.external_button,
             self.chat_text_entry,
+            self.case_number_entry,
+            self.examiner_entry,
+            self.organization_entry,
+            self.case_description_entry,
             self.export_media_check,
             self.image_preview_check,
             self.excel_check,
-            self.log_file_browse_button,
             self.run_button,
             self.advanced_button,
         ):
@@ -568,11 +635,11 @@ class ChatExportGui:
             cfg (ExportConfig): Export configuration.
         """
         try:
+            extra_handlers: list[logging.Handler] = [QueueLogHandler(self._log_queue)]
             setup_logging(
-                cfg.log_level,
                 cfg.log_file,
                 console=False,
-                extra_handlers=[QueueLogHandler(self._log_queue)],
+                extra_handlers=extra_handlers,
                 replace_existing=True,
             )
             result = export_all_conversations(cfg)
@@ -587,10 +654,13 @@ class ChatExportGui:
             )
             return
 
+        status = result.get("status", "Completed")
+        ok = status != "Failed"
+        status_text = status.lower()
         self._result_queue.put(
             GuiResult(
-                ok=True,
-                message=f"Export completed. Conversations: {len(result['exported'])}",
+                ok=ok,
+                message=f"Export {status_text}. Conversations: {len(result['exported'])}",
                 payload=result,
             )
         )
@@ -630,9 +700,14 @@ class ChatExportGui:
         """
         self._set_running(False)
         if result.ok:
-            self.status_var.set("Export completed")
+            status = (
+                result.payload.get("status", "Completed")
+                if result.payload
+                else "Completed"
+            )
+            self.status_var.set(status)
             self.open_output_button.configure(state="normal")
-            messagebox.showinfo("Export completed", result.message, parent=self.root)
+            messagebox.showinfo(status, result.message, parent=self.root)
         else:
             self.status_var.set("Export failed")
             messagebox.showerror("Export failed", result.message, parent=self.root)

@@ -1,22 +1,19 @@
-"""Define the command-line entry points for chat exports.
-
-This module builds the argument parser, configures logging, maps CLI arguments
-to ``ExportConfig``, and starts the orchestration step.
-"""
+"""Run the command-line export entry point."""
 
 from __future__ import annotations
 import argparse
 import logging
+import sys
 from typing import Optional
 
-from .common.logging_setup import setup_logging
+from .common.logging_setup import sanitize_local_paths, setup_logging
 from .config_factory import build_export_config
-from .constants import DEFAULT_SOURCE_APP, DEFAULT_TIMEZONE, LOG_LEVELS, SOURCE_APPS
+from .constants import DEFAULT_SOURCE_APP, DEFAULT_TIMEZONE, SOURCE_APPS
 from .orchestrator import export_all_conversations
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the top-level CLI argument parser.
+    """Build the CLI argument parser.
 
     Returns:
         argparse.ArgumentParser: Configured parser for all supported export
@@ -90,12 +87,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     p.add_argument(
-        "--log-level",
-        default="INFO",
-        choices=LOG_LEVELS,
-        help="Log level (DEBUG/INFO/WARNING/ERROR)",
+        "--case-number",
+        default=None,
+        help="Optional case or reference number for export_summary.txt and manifest.json",
     )
-    p.add_argument("--log-file", default=None, help="Optional log file path")
+    p.add_argument(
+        "--examiner",
+        default=None,
+        help="Optional examiner name or initials for export_summary.txt and manifest.json",
+    )
+    p.add_argument(
+        "--organization",
+        default=None,
+        help="Optional organization or unit for export_summary.txt and manifest.json",
+    )
+    p.add_argument(
+        "--case-description",
+        default=None,
+        help="Optional case notes or description for export_summary.txt and manifest.json",
+    )
+
     return p
 
 
@@ -113,33 +124,6 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    setup_logging(args.log_level, args.log_file)
-    log = logging.getLogger("chat_export")
-    log.debug("Parsed CLI args: %s", vars(args))
-    log.info("Starting export source=%s tz=%s", args.source, args.tz)
-    log.debug(
-        "Export options source=%s media=%s image_previews=%s excel=%s max_media_bytes=%s limit_conversations=%s limit_messages=%s log_file=%s chat_text_name=%s",
-        args.source,
-        not args.no_media,
-        not args.no_image_previews,
-        args.excel,
-        args.max_media_bytes,
-        args.limit_conversations,
-        args.limit_messages,
-        args.log_file,
-        args.chat_text_name,
-    )
-    if args.source == "threema" and not args.external_folder:
-        log.warning("No --external-folder specified, media export may be incomplete")
-    if args.no_media:
-        log.info("Media export disabled by --no-media flag")
-    if args.no_image_previews:
-        log.info("Inline image previews disabled by --no-image-previews flag")
-    if args.excel:
-        log.info("Excel export enabled")
-    if args.max_media_bytes > 0:
-        log.info("Will skip media blobs larger than %d bytes", args.max_media_bytes)
-
     try:
         cfg = build_export_config(
             out_dir=args.out_dir,
@@ -155,25 +139,75 @@ def main(argv: Optional[list[str]] = None) -> int:
             max_media_bytes=args.max_media_bytes,
             limit_conversations=args.limit_conversations,
             limit_messages=args.limit_messages,
-            log_level=args.log_level,
-            log_file=args.log_file,
+            case_number=args.case_number,
+            examiner=args.examiner,
+            organization=args.organization,
+            case_description=args.case_description,
         )
+    except Exception as e:
+        setup_logging()
+        log = logging.getLogger("chat_export")
+        log.exception("Export configuration failed: %s", e)
+        return 1
+
+    try:
+        setup_logging(cfg.log_file)
+    except Exception as e:
+        try:
+            setup_logging()
+            log = logging.getLogger("chat_export")
+            log.error("Failed to initialize file logging: %s", e)
+        except Exception:
+            print(
+                f"Failed to initialize logging: {sanitize_local_paths(str(e))}",
+                file=sys.stderr,
+            )
+        return 1
+
+    log = logging.getLogger("chat_export")
+    log.debug("Parsed CLI args: %s", vars(args))
+    log.info("Starting export source=%s tz=%s", args.source, args.tz)
+    log.debug(
+        "Export options source=%s media=%s image_previews=%s excel=%s max_media_bytes=%s limit_conversations=%s limit_messages=%s chat_text_name=%s",
+        args.source,
+        not args.no_media,
+        not args.no_image_previews,
+        args.excel,
+        args.max_media_bytes,
+        args.limit_conversations,
+        args.limit_messages,
+        args.chat_text_name,
+    )
+    if args.no_media:
+        log.info("Media export disabled by --no-media flag")
+    if args.no_image_previews:
+        log.info("Inline image previews disabled by --no-image-previews flag")
+    if args.excel:
+        log.info("Excel export enabled")
+    if args.max_media_bytes > 0:
+        log.info("Will skip media blobs larger than %d bytes", args.max_media_bytes)
+
+    try:
         res = export_all_conversations(cfg)
     except Exception as e:
         log.exception("Export failed: %s", e)
         return 1
 
     log.info(
-        "Completed export source=%s conversations=%s time_mode=%s",
+        "Completed export source=%s conversations=%s time_mode=%s status=%s",
         res["source_app"],
         len(res["exported"]),
         res.get("time_mode", "unknown"),
+        res.get("status", "Completed"),
     )
     log.debug("Completed export output_dir=%s", res["out_dir"])
 
     print("Source app:", res["source_app"])
+    print("Export status:", res.get("status", "Completed"))
     print("Detected time_mode:", res.get("time_mode", "unknown"))
     print("External index entries:", res.get("external_index_entries", 0))
     print("Conversations exported:", len(res["exported"]))
-    print("Output dir:", res["out_dir"])
+    print("Output dir:", sanitize_local_paths(res["out_dir"]))
+    if res.get("status") == "Failed":
+        return 1
     return 0
