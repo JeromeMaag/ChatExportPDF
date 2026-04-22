@@ -7,6 +7,7 @@ traceability details.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from datetime import datetime, timezone
@@ -21,6 +22,7 @@ REPOSITORY_URL = "https://github.com/JeromeMaag/ChatExportPDF"
 EXPORT_SUMMARY_FILENAME = "export_summary.txt"
 MANIFEST_FILENAME = "manifest.json"
 LOG_FILENAME = "log.txt"
+HASH_CHUNK_SIZE = 1024 * 1024
 
 
 def default_log_file(out_dir: str) -> str:
@@ -45,6 +47,47 @@ def _duration_seconds(started_at: datetime, finished_at: datetime) -> float:
     return round((finished_at - started_at).total_seconds(), 3)
 
 
+def _hash_file(path: str) -> tuple[str, str]:
+    """Return MD5 and SHA-256 hashes for one file."""
+    md5 = hashlib.md5()
+    sha256 = hashlib.sha256()
+    with open(path, "rb") as handle:
+        while True:
+            chunk = handle.read(HASH_CHUNK_SIZE)
+            if not chunk:
+                break
+            md5.update(chunk)
+            sha256.update(chunk)
+    return md5.hexdigest(), sha256.hexdigest()
+
+
+def _file_metadata(path: str | None) -> dict[str, Any]:
+    """Return filename, size, and hashes without exposing the full path."""
+    if not path:
+        return {
+            "filename": None,
+            "size_bytes": None,
+            "md5": None,
+            "sha256": None,
+        }
+
+    metadata: dict[str, Any] = {
+        "filename": os.path.basename(path),
+        "size_bytes": None,
+        "md5": None,
+        "sha256": None,
+    }
+    if not os.path.isfile(path):
+        return metadata
+
+    try:
+        metadata["size_bytes"] = os.path.getsize(path)
+        metadata["md5"], metadata["sha256"] = _hash_file(path)
+    except OSError:
+        pass
+    return metadata
+
+
 def _relpath(path: str | None, out_dir: str) -> str | None:
     """Return a safe relative path for an output artifact."""
     if not path:
@@ -60,20 +103,20 @@ def _relpath(path: str | None, out_dir: str) -> str | None:
     return os.path.relpath(abs_path, abs_out).replace(os.sep, "/")
 
 
-def _input_filename(cfg: ExportConfig) -> str:
-    """Return only the input filename, never the full local path."""
+def _input_file_info(cfg: ExportConfig) -> dict[str, Any]:
+    """Build input file metadata without recording local absolute paths."""
     try:
         path = cfg.resolved_input_path()
     except Exception:
-        return "# TODO: input filename unavailable until config validation succeeds"
-    return os.path.basename(path)
+        path = None
+    return _file_metadata(path)
 
 
 def _conversation_entries(
     results: dict[str, Any] | None,
     out_dir: str,
 ) -> list[dict[str, Any]]:
-    """Build phase-1 conversation summary entries."""
+    """Build conversation summary entries."""
     entries: list[dict[str, Any]] = []
     for item in (results or {}).get("exported", []):
         generated_files = [
@@ -95,12 +138,53 @@ def _conversation_entries(
     return entries
 
 
+def _iter_files(root: str | None) -> list[str]:
+    """Return all files below a directory in deterministic order."""
+    if not root or not os.path.isdir(root):
+        return []
+    paths: list[str] = []
+    for current_root, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        for filename in sorted(filenames):
+            paths.append(os.path.join(current_root, filename))
+    return paths
+
+
+def _append_generated_file(
+    entries: list[dict[str, Any]],
+    seen_paths: set[str],
+    *,
+    file_type: str,
+    path: str | None,
+    out_dir: str,
+) -> None:
+    """Append one generated file entry if it exists and was not seen before."""
+    if not path or not os.path.isfile(path):
+        return
+    rel_path = _relpath(path, out_dir)
+    if not rel_path or rel_path in seen_paths:
+        return
+    metadata = _file_metadata(path)
+    entries.append(
+        {
+            "type": file_type,
+            "path": rel_path,
+            "filename": metadata["filename"],
+            "size_bytes": metadata["size_bytes"],
+            "md5": metadata["md5"],
+            "sha256": metadata["sha256"],
+        }
+    )
+    seen_paths.add(rel_path)
+
+
 def _generated_file_entries(
     results: dict[str, Any] | None,
     out_dir: str,
 ) -> list[dict[str, Any]]:
-    """Build phase-1 generated file entries with TODO metadata placeholders."""
+    """Build generated output file entries with size and hashes."""
     entries: list[dict[str, Any]] = []
+    seen_paths: set[str] = set()
     file_fields = (
         ("normal_pdf", "pdf_path"),
         ("tech_pdf", "pdf_tech_path"),
@@ -108,37 +192,27 @@ def _generated_file_entries(
     )
     for item in (results or {}).get("exported", []):
         for file_type, key in file_fields:
-            rel_path = _relpath(item.get(key), out_dir)
-            if not rel_path:
-                continue
-            entries.append(
-                {
-                    "type": file_type,
-                    "path": rel_path,
-                    "size_bytes": "# TODO: calculate generated file size",
-                    "md5": "# TODO: calculate generated file MD5",
-                    "sha256": "# TODO: calculate generated file SHA256",
-                }
+            _append_generated_file(
+                entries,
+                seen_paths,
+                file_type=file_type,
+                path=item.get(key),
+                out_dir=out_dir,
             )
-    media_dir = os.path.join(out_dir, "media")
-    if os.path.isdir(media_dir):
-        for root, _, filenames in os.walk(media_dir):
-            for filename in sorted(filenames):
-                path = os.path.join(root, filename)
-                entries.append(
-                    {
-                        "type": "media_file",
-                        "path": _relpath(path, out_dir),
-                        "size_bytes": "# TODO: calculate generated file size",
-                        "md5": "# TODO: calculate generated file MD5",
-                        "sha256": "# TODO: calculate generated file SHA256",
-                    }
-                )
+
+        for path in _iter_files(item.get("media_dir")):
+            _append_generated_file(
+                entries,
+                seen_paths,
+                file_type="media_file",
+                path=path,
+                out_dir=out_dir,
+            )
     return entries
 
 
 def _overall_counts(results: dict[str, Any] | None) -> dict[str, Any]:
-    """Build phase-1 overall count values."""
+    """Build overall count values."""
     exported = (results or {}).get("exported", [])
     return {
         "conversation_count": len(exported),
@@ -202,12 +276,7 @@ def build_manifest(
             "timestamp_timezone": "UTC",
             "status": status,
         },
-        "input": {
-            "filename": _input_filename(cfg),
-            "size_bytes": "# TODO: calculate input file size",
-            "md5": "# TODO: calculate input file MD5",
-            "sha256": "# TODO: calculate input file SHA256",
-        },
+        "input": _input_file_info(cfg),
         "settings": _settings(cfg, results),
         "results": _overall_counts(results),
         "conversations": _conversation_entries(results, out_dir),
@@ -313,10 +382,16 @@ def build_summary_text(
         _line("Number of TECH PDFs", output_counts["tech_pdf"]),
         _line("Number of Excel workbooks", output_counts["excel_workbook"]),
         _line("Number of exported media files", output_counts["media_file"]),
-        "",
-        "Conversation Summaries",
-        "----------------------",
+        _line("Generated file inventory", f"{MANIFEST_FILENAME} -> files"),
     ]
+
+    lines.extend(
+        [
+            "",
+            "Conversation Summaries",
+            "----------------------",
+        ]
+    )
 
     if manifest["conversations"]:
         for index, conversation in enumerate(manifest["conversations"], start=1):
