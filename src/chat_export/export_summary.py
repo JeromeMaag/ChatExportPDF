@@ -340,7 +340,7 @@ def _overall_counts(results: dict[str, Any] | None) -> dict[str, Any]:
         "attachment_count": sum(item.get("attachment_count") or 0 for item in exported),
         "missing_media_count": _count("missing_media_count"),
         "skipped_media_count": _count("skipped_media_count"),
-        "unparseable_message_count": _count("unparseable_message_count"),
+        "unparseable_line_count": _count("unparseable_line_count"),
     }
 
 
@@ -491,8 +491,8 @@ def build_summary_text(manifest: dict[str, Any]) -> str:
         _line("Number of missing media references", counts["missing_media_count"]),
         _line("Number of skipped media references", counts["skipped_media_count"]),
         _line(
-            "Number of unparseable messages / lines",
-            counts["unparseable_message_count"],
+            "Number of unparseable lines",
+            counts["unparseable_line_count"],
         ),
         "",
         "Generated Output",

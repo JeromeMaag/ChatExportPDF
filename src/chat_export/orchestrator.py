@@ -306,8 +306,8 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
                     "skipped_media_count": exported.metadata.get(
                         "skipped_media_count", 0
                     ),
-                    "unparseable_message_count": exported.metadata.get(
-                        "unparseable_message_count", 0
+                    "unparseable_line_count": exported.metadata.get(
+                        "unparseable_line_count", 0
                     ),
                 }
             )

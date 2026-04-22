@@ -191,7 +191,7 @@ class WhatsAppImporter:
                 "message_count": len(parsed_messages),
                 "missing_media_count": missing_media_count,
                 "skipped_media_count": skipped_media_count,
-                "unparseable_message_count": parse_result.unparseable_line_count,
+                "unparseable_line_count": parse_result.unparseable_line_count,
             },
         )
 
@@ -216,7 +216,7 @@ class WhatsAppImporter:
                 "attachments_in_zip": len(export.attachments),
                 "missing_media_count": missing_media_count,
                 "skipped_media_count": skipped_media_count,
-                "unparseable_message_count": parse_result.unparseable_line_count,
+                "unparseable_line_count": parse_result.unparseable_line_count,
                 "whatsapp_line_count": parse_result.line_count,
                 "whatsapp_continuation_line_count": parse_result.continuation_line_count,
             },

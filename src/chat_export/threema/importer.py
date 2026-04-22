@@ -218,7 +218,7 @@ class ThreemaImporter:
                             "media_dir": os.path.abspath(conv_media_dir) if conv_media_dir else None,
                             "missing_media_count": missing_media_count,
                             "skipped_media_count": skipped_media_count,
-                            "unparseable_message_count": 0,
+                            "unparseable_line_count": 0,
                         },
                     )
                 )
@@ -243,7 +243,7 @@ class ThreemaImporter:
                     "external_index_entries": len(external_index),
                     "missing_media_count": total_missing_media_count,
                     "skipped_media_count": total_skipped_media_count,
-                    "unparseable_message_count": 0,
+                    "unparseable_line_count": 0,
                 },
             )
             log.info(
