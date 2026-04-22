@@ -488,8 +488,8 @@ def build_summary_text(manifest: dict[str, Any]) -> str:
         _line("Number of messages", counts["message_count"]),
         _line("Number of participants", counts["participant_count"]),
         _line("Number of attachments", counts["attachment_count"]),
-        _line("Number of missing media files", counts["missing_media_count"]),
-        _line("Number of skipped media files", counts["skipped_media_count"]),
+        _line("Number of missing media references", counts["missing_media_count"]),
+        _line("Number of skipped media references", counts["skipped_media_count"]),
         _line(
             "Number of unparseable messages / lines",
             counts["unparseable_message_count"],
