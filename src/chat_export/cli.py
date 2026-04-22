@@ -191,16 +191,20 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 1
 
     log.info(
-        "Completed export source=%s conversations=%s time_mode=%s",
+        "Completed export source=%s conversations=%s time_mode=%s status=%s",
         res["source_app"],
         len(res["exported"]),
         res.get("time_mode", "unknown"),
+        res.get("status", "Completed"),
     )
     log.debug("Completed export output_dir=%s", res["out_dir"])
 
     print("Source app:", res["source_app"])
+    print("Export status:", res.get("status", "Completed"))
     print("Detected time_mode:", res.get("time_mode", "unknown"))
     print("External index entries:", res.get("external_index_entries", 0))
     print("Conversations exported:", len(res["exported"]))
     print("Output dir:", res["out_dir"])
+    if res.get("status") == "Failed":
+        return 1
     return 0

@@ -32,19 +32,24 @@ IMPORTERS: Dict[str, ConversationImporter] = {
 }
 
 
-class _ExportWarningCaptureHandler(logging.Handler):
+class _ExportLogCaptureHandler(logging.Handler):
     """Collect warning and error log records for the export manifest."""
 
     def __init__(self) -> None:
         """Initialize the capture handler."""
         super().__init__(level=logging.WARNING)
-        self.records: list[str] = []
+        self.warnings: list[str] = []
+        self.errors: list[str] = []
         self.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
 
     def emit(self, record: logging.LogRecord) -> None:
-        """Store one sanitized warning/error log record."""
+        """Store one sanitized warning or error log record."""
         try:
-            self.records.append(sanitize_local_paths(self.format(record)))
+            message = sanitize_local_paths(self.format(record))
+            if record.levelno >= logging.ERROR:
+                self.errors.append(message)
+            else:
+                self.warnings.append(message)
         except Exception:
             self.handleError(record)
 
@@ -129,7 +134,7 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
     started_at = utc_now()
     errors: list[str] = []
     warnings: list[str] = []
-    capture_handler = _ExportWarningCaptureHandler()
+    capture_handler = _ExportLogCaptureHandler()
     logging.getLogger().addHandler(capture_handler)
     out_dir = os.path.abspath(cfg.out_dir) if cfg.out_dir and cfg.out_dir.strip() else ""
     results: Dict[str, Any] = {
@@ -300,7 +305,8 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
     finally:
         finished_at = utc_now()
         logging.getLogger().removeHandler(capture_handler)
-        warnings = _unique_messages(warnings + capture_handler.records)
+        warnings = _unique_messages(warnings + capture_handler.warnings)
+        errors = _unique_messages(errors + capture_handler.errors)
         status = _derive_status(errors, warnings)
         results["status"] = status
         results["warnings"] = warnings

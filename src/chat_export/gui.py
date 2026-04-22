@@ -671,10 +671,13 @@ class ChatExportGui:
             )
             return
 
+        status = result.get("status", "Completed")
+        ok = status != "Failed"
+        status_text = status.lower()
         self._result_queue.put(
             GuiResult(
-                ok=True,
-                message=f"Export completed. Conversations: {len(result['exported'])}",
+                ok=ok,
+                message=f"Export {status_text}. Conversations: {len(result['exported'])}",
                 payload=result,
             )
         )
@@ -714,9 +717,14 @@ class ChatExportGui:
         """
         self._set_running(False)
         if result.ok:
-            self.status_var.set("Export completed")
+            status = (
+                result.payload.get("status", "Completed")
+                if result.payload
+                else "Completed"
+            )
+            self.status_var.set(status)
             self.open_output_button.configure(state="normal")
-            messagebox.showinfo("Export completed", result.message, parent=self.root)
+            messagebox.showinfo(status, result.message, parent=self.root)
         else:
             self.status_var.set("Export failed")
             messagebox.showerror("Export failed", result.message, parent=self.root)
