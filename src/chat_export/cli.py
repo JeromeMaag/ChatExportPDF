@@ -150,8 +150,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         args.limit_messages,
         args.chat_text_name,
     )
-    if args.source == "threema" and not args.external_folder:
-        log.warning("No --external-folder specified, media export may be incomplete")
     if args.no_media:
         log.info("Media export disabled by --no-media flag")
     if args.no_image_previews:

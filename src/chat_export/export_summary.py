@@ -290,6 +290,7 @@ def build_manifest(
     generated_at: datetime,
     status: str,
     errors: list[str] | None = None,
+    warnings: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build the manifest dictionary."""
     out_dir = os.path.abspath(cfg.out_dir)
@@ -318,7 +319,7 @@ def build_manifest(
         "results": _overall_counts(results),
         "conversations": _conversation_entries(results, out_dir),
         "files": _generated_file_entries(results, out_dir),
-        "warnings": ["# TODO: collect structured warnings from export run"],
+        "warnings": [sanitize_local_paths(warning) for warning in (warnings or [])],
         "errors": [sanitize_local_paths(error) for error in (errors or [])],
         "notes": [
             "This manifest documents processing of the provided input data.",
@@ -461,7 +462,10 @@ def build_summary_text(
         ]
     )
     warnings = manifest.get("warnings") or []
-    lines.extend(f"- {warning}" for warning in warnings)
+    if warnings:
+        lines.extend(f"- {warning}" for warning in warnings)
+    else:
+        lines.append("- none recorded")
     lines.append("Errors:")
     errors = manifest.get("errors") or []
     if errors:
@@ -495,6 +499,7 @@ def write_traceability_files(
     finished_at: datetime,
     status: str,
     errors: list[str] | None = None,
+    warnings: list[str] | None = None,
 ) -> dict[str, str]:
     """Write export_summary.txt and manifest.json for one export run."""
     out_dir = os.path.abspath(cfg.out_dir)
@@ -507,6 +512,7 @@ def write_traceability_files(
         generated_at=utc_now(),
         status=status,
         errors=errors,
+        warnings=warnings,
     )
     summary_path = os.path.join(out_dir, EXPORT_SUMMARY_FILENAME)
     manifest_path = os.path.join(out_dir, MANIFEST_FILENAME)

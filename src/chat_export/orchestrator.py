@@ -11,6 +11,7 @@ import logging
 import os
 from typing import Any, Dict
 
+from .common.logging_setup import sanitize_local_paths
 from .common.util import ensure_dir, safe_filename
 from .config import ExportConfig
 from .constants import SOURCE_APP_THREEMA, SOURCE_APP_WHATSAPP
@@ -29,6 +30,44 @@ IMPORTERS: Dict[str, ConversationImporter] = {
     SOURCE_APP_THREEMA: ThreemaImporter(),
     SOURCE_APP_WHATSAPP: WhatsAppImporter(),
 }
+
+
+class _ExportWarningCaptureHandler(logging.Handler):
+    """Collect warning and error log records for the export manifest."""
+
+    def __init__(self) -> None:
+        """Initialize the capture handler."""
+        super().__init__(level=logging.WARNING)
+        self.records: list[str] = []
+        self.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Store one sanitized warning/error log record."""
+        try:
+            self.records.append(sanitize_local_paths(self.format(record)))
+        except Exception:
+            self.handleError(record)
+
+
+def _unique_messages(messages: list[str]) -> list[str]:
+    """Return unique messages while preserving their original order."""
+    unique: list[str] = []
+    seen: set[str] = set()
+    for message in messages:
+        if not message or message in seen:
+            continue
+        unique.append(message)
+        seen.add(message)
+    return unique
+
+
+def _derive_status(errors: list[str], warnings: list[str]) -> str:
+    """Derive the final export status from collected errors and warnings."""
+    if errors:
+        return "Failed"
+    if warnings:
+        return "Completed with warnings"
+    return "Completed"
 
 
 def get_importer(source_app: str) -> ConversationImporter:
@@ -88,9 +127,10 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
         Dict[str, Any]: Run metadata and per-conversation output file paths.
     """
     started_at = utc_now()
-    finished_at = started_at
-    status = "Failed"
     errors: list[str] = []
+    warnings: list[str] = []
+    capture_handler = _ExportWarningCaptureHandler()
+    logging.getLogger().addHandler(capture_handler)
     out_dir = os.path.abspath(cfg.out_dir)
     results: Dict[str, Any] = {
         "source_app": cfg.source_app,
@@ -115,6 +155,13 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
         if cfg.export_excel:
             excel_out = os.path.join(out_dir, "excel")
             ensure_dir(excel_out)
+
+        if (
+            cfg.source_app == SOURCE_APP_THREEMA
+            and cfg.export_media
+            and not cfg.external_folder
+        ):
+            log.warning("No external_folder specified; media export may be incomplete")
 
         log.debug(
             "Ensured output directories source=%s input=%s conversations=%s media=%s excel=%s",
@@ -231,7 +278,6 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
                 total_conversations,
             )
 
-        status = "Completed"
         log.info(
             "Completed orchestration source=%s exported=%s",
             cfg.source_app,
@@ -244,6 +290,18 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
         raise
     finally:
         finished_at = utc_now()
+        logging.getLogger().removeHandler(capture_handler)
+        warnings = _unique_messages(warnings + capture_handler.records)
+        status = _derive_status(errors, warnings)
+        results["status"] = status
+        results["warnings"] = warnings
+        results["errors"] = [sanitize_local_paths(error) for error in errors]
+        log.info(
+            "Resolved export status status=%s warnings=%s errors=%s",
+            status,
+            len(warnings),
+            len(errors),
+        )
         try:
             trace_paths = write_traceability_files(
                 cfg,
@@ -252,6 +310,7 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
                 finished_at=finished_at,
                 status=status,
                 errors=errors,
+                warnings=warnings,
             )
             results.update(trace_paths)
         except Exception:
