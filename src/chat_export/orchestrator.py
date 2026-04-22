@@ -15,7 +15,12 @@ from .common.logging_setup import sanitize_local_paths
 from .common.util import ensure_dir, safe_filename
 from .config import ExportConfig
 from .constants import SOURCE_APP_THREEMA, SOURCE_APP_WHATSAPP
-from .export_summary import utc_now, write_traceability_files
+from .export_summary import (
+    EXPORT_SUMMARY_FILENAME,
+    MANIFEST_FILENAME,
+    utc_now,
+    write_traceability_files,
+)
 from .importers.base import ConversationImporter, ImportedConversation
 from .render.excel_builder import build_conversation_xlsx
 from .render.pdf_builder import build_conversation_pdf, build_fallback_tech_pdf
@@ -73,6 +78,29 @@ def _derive_status(errors: list[str], warnings: list[str]) -> str:
     if warnings:
         return "Completed with warnings"
     return "Completed"
+
+
+def _apply_export_status(
+    results: Dict[str, Any],
+    errors: list[str],
+    warnings: list[str],
+) -> str:
+    """Store the derived export status plus collected warnings/errors."""
+    status = _derive_status(errors, warnings)
+    results["status"] = status
+    results["warnings"] = warnings
+    results["errors"] = [sanitize_local_paths(error) for error in errors]
+    return status
+
+
+def _record_existing_traceability_paths(results: Dict[str, Any], out_dir: str) -> None:
+    """Record traceability artifact paths that already exist on disk."""
+    summary_path = os.path.join(out_dir, EXPORT_SUMMARY_FILENAME)
+    manifest_path = os.path.join(out_dir, MANIFEST_FILENAME)
+    if os.path.isfile(summary_path):
+        results["export_summary_path"] = summary_path
+    if os.path.isfile(manifest_path):
+        results["manifest_path"] = manifest_path
 
 
 def get_importer(source_app: str) -> ConversationImporter:
@@ -312,16 +340,7 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
         root_logger.setLevel(original_root_level)
         warnings = _unique_messages(warnings + capture_handler.warnings)
         errors = _unique_messages(errors + capture_handler.errors)
-        status = _derive_status(errors, warnings)
-        results["status"] = status
-        results["warnings"] = warnings
-        results["errors"] = [sanitize_local_paths(error) for error in errors]
-        log.info(
-            "Resolved export status status=%s warnings=%s errors=%s",
-            status,
-            len(warnings),
-            len(errors),
-        )
+        status = _apply_export_status(results, errors, warnings)
         if out_dir:
             try:
                 trace_paths = write_traceability_files(
@@ -334,10 +353,25 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
                     warnings=warnings,
                 )
                 results.update(trace_paths)
-            except Exception:
+            except Exception as exc:
+                _record_existing_traceability_paths(results, out_dir)
+                traceability_error = sanitize_local_paths(
+                    str(exc) or exc.__class__.__name__
+                )
+                errors = _unique_messages(
+                    errors
+                    + [f"Failed to write traceability files: {traceability_error}"]
+                )
+                status = _apply_export_status(results, errors, warnings)
                 log.exception(
                     "Failed to write traceability files output_dir=%s",
                     out_dir,
                 )
         else:
             log.error("Skipping traceability files because output directory is empty")
+        log.info(
+            "Resolved export status status=%s warnings=%s errors=%s",
+            status,
+            len(warnings),
+            len(errors),
+        )
