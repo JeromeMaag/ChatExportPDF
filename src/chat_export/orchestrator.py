@@ -141,6 +141,15 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
 
         total_conversations = len(import_run.conversations)
         for index, exported in enumerate(import_run.conversations, start=1):
+            participant_count = len(exported.conversation.participants)
+            participant_ids = [
+                participant.participant_id
+                for participant in exported.conversation.participants
+                if participant.participant_id
+            ]
+            attachment_count = sum(
+                len(message.attachments) for message in exported.conversation.messages
+            )
             log.info(
                 "Rendering conversation source=%s index=%s/%s messages=%s",
                 cfg.source_app,
@@ -149,16 +158,14 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
                 len(exported.conversation.messages),
             )
             if log.isEnabledFor(logging.DEBUG):
-                attachment_count = sum(
-                    len(message.attachments) for message in exported.conversation.messages
-                )
                 log.debug(
-                    "Rendering conversation details source=%s index=%s/%s conversation_id=%s title=%s attachments=%s",
+                    "Rendering conversation details source=%s index=%s/%s conversation_id=%s title=%s participants=%s attachments=%s",
                     cfg.source_app,
                     index,
                     total_conversations,
                     exported.conversation.conversation_id,
                     exported.conversation.title,
+                    participant_count,
                     attachment_count,
                 )
             safe_title = safe_filename(exported.conversation.title)
@@ -203,6 +210,10 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
                 {
                     "conversation_id": exported.conversation.conversation_id,
                     "title": exported.conversation.title,
+                    "conversation_type": exported.conversation.conversation_type,
+                    "participant_count": participant_count,
+                    "participant_ids": participant_ids,
+                    "attachment_count": attachment_count,
                     "pdf_path": pdf_path,
                     "pdf_tech_path": pdf_tech_path,
                     "xlsx_path": xlsx_path,

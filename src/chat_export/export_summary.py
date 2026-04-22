@@ -128,10 +128,10 @@ def _conversation_entries(
             {
                 "title": item.get("title"),
                 "conversation_id": item.get("conversation_id"),
-                "conversation_type": "# TODO: collect conversation type",
-                "participant_count": "# TODO: collect participant count",
+                "conversation_type": item.get("conversation_type"),
+                "participant_count": item.get("participant_count"),
                 "message_count": item.get("message_count"),
-                "attachment_count": "# TODO: collect attachment count",
+                "attachment_count": item.get("attachment_count"),
                 "generated_files": [path for path in generated_files if path],
             }
         )
@@ -214,11 +214,21 @@ def _generated_file_entries(
 def _overall_counts(results: dict[str, Any] | None) -> dict[str, Any]:
     """Build overall count values."""
     exported = (results or {}).get("exported", [])
+    participant_ids = {
+        participant_id
+        for item in exported
+        for participant_id in (item.get("participant_ids") or [])
+    }
+    participant_count = (
+        len(participant_ids)
+        if participant_ids
+        else sum(item.get("participant_count") or 0 for item in exported)
+    )
     return {
         "conversation_count": len(exported),
         "message_count": sum(item.get("message_count") or 0 for item in exported),
-        "participant_count": "# TODO: collect participant count",
-        "attachment_count": "# TODO: collect attachment count",
+        "participant_count": participant_count,
+        "attachment_count": sum(item.get("attachment_count") or 0 for item in exported),
         "missing_media_count": "# TODO: collect missing media count",
         "skipped_media_count": "# TODO: collect skipped media count",
         "unparseable_message_count": "# TODO: collect unparseable message/line count",
