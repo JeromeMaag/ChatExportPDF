@@ -94,11 +94,13 @@ class ExportConfig:
             None: This method validates in place.
 
         Raises:
-            ValueError: If ``source_app`` is empty.
+            ValueError: If ``source_app`` or ``out_dir`` is empty.
             FileNotFoundError: If the input file or external directory is missing.
         """
         if not self.source_app or not self.source_app.strip():
             raise ValueError("source_app must not be empty")
+        if not self.out_dir or not self.out_dir.strip():
+            raise ValueError("out_dir must not be empty")
         out = Path(self.out_dir)
         out.mkdir(parents=True, exist_ok=True)
 

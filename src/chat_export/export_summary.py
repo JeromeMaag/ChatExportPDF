@@ -205,6 +205,33 @@ def _append_generated_file(
     seen_paths.add(rel_path)
 
 
+def _append_unhashed_file(
+    entries: list[dict[str, Any]],
+    seen_paths: set[str],
+    *,
+    file_type: str,
+    path: str,
+    out_dir: str,
+    hash_note: str,
+) -> None:
+    """Append one file entry where hashes are intentionally not recorded."""
+    rel_path = _relpath(path, out_dir)
+    if not rel_path or rel_path in seen_paths:
+        return
+    entries.append(
+        {
+            "type": file_type,
+            "path": rel_path,
+            "filename": os.path.basename(path),
+            "size_bytes": None,
+            "md5": None,
+            "sha256": None,
+            "hash_note": hash_note,
+        }
+    )
+    seen_paths.add(rel_path)
+
+
 def _generated_file_entries(
     results: dict[str, Any] | None,
     out_dir: str,
@@ -236,6 +263,43 @@ def _generated_file_entries(
                 out_dir=out_dir,
             )
     return entries
+
+
+def _append_traceability_file_entries(
+    manifest: dict[str, Any],
+    *,
+    out_dir: str,
+    summary_path: str,
+    manifest_path: str,
+) -> None:
+    """Add traceability artifact entries to the manifest file inventory."""
+    entries = manifest["files"]
+    seen_paths = {entry.get("path") for entry in entries if entry.get("path")}
+    _append_generated_file(
+        entries,
+        seen_paths,
+        file_type="export_summary",
+        path=summary_path,
+        out_dir=out_dir,
+    )
+    log_path = default_log_file(out_dir)
+    if os.path.isfile(log_path):
+        _append_unhashed_file(
+            entries,
+            seen_paths,
+            file_type="log",
+            path=log_path,
+            out_dir=out_dir,
+            hash_note="log may receive entries after manifest generation",
+        )
+    _append_unhashed_file(
+        entries,
+        seen_paths,
+        file_type="manifest",
+        path=manifest_path,
+        out_dir=out_dir,
+        hash_note="self-referential manifest; hash not recorded",
+    )
 
 
 def _overall_counts(results: dict[str, Any] | None) -> dict[str, Any]:
@@ -489,7 +553,7 @@ def build_summary_text(
             "--------------",
             "This report documents processing of the provided input data.",
             "It does not validate origin, authenticity, or completeness of the source.",
-            "No absolute local paths should be included in this summary.",
+            "Generated file paths in this summary are intended to avoid absolute local paths.",
             "",
         ]
     )
@@ -523,6 +587,12 @@ def write_traceability_files(
     manifest_path = os.path.join(out_dir, MANIFEST_FILENAME)
     with open(summary_path, "w", encoding="utf-8") as handle:
         handle.write(build_summary_text(cfg, manifest))
+    _append_traceability_file_entries(
+        manifest,
+        out_dir=out_dir,
+        summary_path=summary_path,
+        manifest_path=manifest_path,
+    )
     with open(manifest_path, "w", encoding="utf-8") as handle:
         json.dump(manifest, handle, ensure_ascii=False, indent=2)
         handle.write("\n")

@@ -131,7 +131,7 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
     warnings: list[str] = []
     capture_handler = _ExportWarningCaptureHandler()
     logging.getLogger().addHandler(capture_handler)
-    out_dir = os.path.abspath(cfg.out_dir)
+    out_dir = os.path.abspath(cfg.out_dir) if cfg.out_dir and cfg.out_dir.strip() else ""
     results: Dict[str, Any] = {
         "source_app": cfg.source_app,
         "out_dir": out_dir,
@@ -302,19 +302,22 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
             len(warnings),
             len(errors),
         )
-        try:
-            trace_paths = write_traceability_files(
-                cfg,
-                results=results,
-                started_at=started_at,
-                finished_at=finished_at,
-                status=status,
-                errors=errors,
-                warnings=warnings,
-            )
-            results.update(trace_paths)
-        except Exception:
-            log.exception(
-                "Failed to write traceability files output_dir=%s",
-                out_dir,
-            )
+        if out_dir:
+            try:
+                trace_paths = write_traceability_files(
+                    cfg,
+                    results=results,
+                    started_at=started_at,
+                    finished_at=finished_at,
+                    status=status,
+                    errors=errors,
+                    warnings=warnings,
+                )
+                results.update(trace_paths)
+            except Exception:
+                log.exception(
+                    "Failed to write traceability files output_dir=%s",
+                    out_dir,
+                )
+        else:
+            log.error("Skipping traceability files because output directory is empty")
