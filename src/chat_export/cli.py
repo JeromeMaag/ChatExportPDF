@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse
 import logging
+import sys
 from typing import Optional
 
 from .common.logging_setup import setup_logging
@@ -149,7 +150,17 @@ def main(argv: Optional[list[str]] = None) -> int:
         log.exception("Export configuration failed: %s", e)
         return 1
 
-    setup_logging(cfg.log_file)
+    try:
+        setup_logging(cfg.log_file)
+    except Exception as e:
+        try:
+            setup_logging()
+            log = logging.getLogger("chat_export")
+            log.error("Failed to initialize file logging: %s", e)
+        except Exception:
+            print(f"Failed to initialize logging: {e}", file=sys.stderr)
+        return 1
+
     log = logging.getLogger("chat_export")
     log.debug("Parsed CLI args: %s", vars(args))
     log.info("Starting export source=%s tz=%s", args.source, args.tz)
