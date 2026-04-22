@@ -11,20 +11,26 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
-WINDOWS_ABSOLUTE_PATH_IN_QUOTES_RE = re.compile(r'(?<=")[A-Za-z]:\\[^"\r\n]+')
-WINDOWS_ABSOLUTE_PATH_AFTER_EQUALS_RE = re.compile(r"(?<==)[A-Za-z]:\\[^\r\n,)]*")
-WINDOWS_ABSOLUTE_PATH_RE = re.compile(r"[A-Za-z]:\\[^\s\r\n,)]*")
+WINDOWS_LOCAL_PATH_IN_QUOTES_RE = re.compile(
+    r'(?<=")(?:[A-Za-z]:\\[^"\r\n]*|\\\\[^"\r\n]*)'
+)
+WINDOWS_LOCAL_PATH_AFTER_EQUALS_RE = re.compile(
+    r'(?<==)(?:[A-Za-z]:\\[^"\r\n,)]*|\\\\[^"\r\n,)]*)'
+)
+WINDOWS_LOCAL_PATH_RE = re.compile(
+    r'(?:[A-Za-z]:\\[^"\s\r\n,)]*|\\\\[^"\s\r\n,)]*)'
+)
 
 
 def sanitize_local_paths(text: str) -> str:
-    """Replace local absolute Windows paths in text."""
-    sanitized = WINDOWS_ABSOLUTE_PATH_IN_QUOTES_RE.sub("<local-path>", text)
-    sanitized = WINDOWS_ABSOLUTE_PATH_AFTER_EQUALS_RE.sub("<local-path>", sanitized)
-    return WINDOWS_ABSOLUTE_PATH_RE.sub("<local-path>", sanitized)
+    """Replace local Windows drive-letter and UNC paths in text."""
+    sanitized = WINDOWS_LOCAL_PATH_IN_QUOTES_RE.sub("<local-path>", text)
+    sanitized = WINDOWS_LOCAL_PATH_AFTER_EQUALS_RE.sub("<local-path>", sanitized)
+    return WINDOWS_LOCAL_PATH_RE.sub("<local-path>", sanitized)
 
 
 class LocalPathSanitizingFormatter(logging.Formatter):
-    """Format log records while hiding local absolute Windows paths."""
+    """Format log records while hiding local Windows paths."""
 
     def format(self, record: logging.LogRecord) -> str:
         """Format one record and replace local absolute paths."""

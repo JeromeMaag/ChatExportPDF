@@ -233,12 +233,18 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
         raise
     finally:
         finished_at = utc_now()
-        trace_paths = write_traceability_files(
-            cfg,
-            results=results,
-            started_at=started_at,
-            finished_at=finished_at,
-            status=status,
-            errors=errors,
-        )
-        results.update(trace_paths)
+        try:
+            trace_paths = write_traceability_files(
+                cfg,
+                results=results,
+                started_at=started_at,
+                finished_at=finished_at,
+                status=status,
+                errors=errors,
+            )
+            results.update(trace_paths)
+        except Exception:
+            log.exception(
+                "Failed to write traceability files output_dir=%s",
+                out_dir,
+            )
