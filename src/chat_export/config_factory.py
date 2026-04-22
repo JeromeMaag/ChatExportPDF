@@ -1,9 +1,4 @@
-"""Build validated export configuration objects from user-facing inputs.
-
-This module contains shared conversion helpers used by multiple entry points.
-It maps raw values from CLI or GUI layers into ``ExportConfig`` and centralizes
-source-specific field rules.
-"""
+"""Build `ExportConfig` instances from CLI and GUI inputs."""
 
 from __future__ import annotations
 

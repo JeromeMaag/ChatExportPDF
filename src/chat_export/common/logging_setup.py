@@ -1,9 +1,4 @@
-"""Configure application logging handlers and formatting.
-
-This module exposes the shared logging setup used by application entry points.
-It supports console logging, optional file logging, optional extra handlers,
-and full handler replacement for repeated setup calls.
-"""
+"""Configure shared application logging."""
 
 import logging
 import re
@@ -23,22 +18,22 @@ WINDOWS_LOCAL_PATH_RE = re.compile(
 
 
 def sanitize_local_paths(text: str) -> str:
-    """Replace local Windows drive-letter and UNC paths in text."""
+    """Redact local Windows paths in text."""
     sanitized = WINDOWS_LOCAL_PATH_IN_QUOTES_RE.sub("<local-path>", text)
     sanitized = WINDOWS_LOCAL_PATH_AFTER_EQUALS_RE.sub("<local-path>", sanitized)
     return WINDOWS_LOCAL_PATH_RE.sub("<local-path>", sanitized)
 
 
 class LocalPathSanitizingFormatter(logging.Formatter):
-    """Format log records while hiding local Windows paths."""
+    """Format log records with local path redaction."""
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format one record and replace local absolute paths."""
+        """Format one record and redact local paths."""
         return sanitize_local_paths(super().format(record))
 
 
 def build_file_handler(log_file: str, level: str | int = "INFO") -> logging.FileHandler:
-    """Create a sanitized file log handler."""
+    """Create a file log handler with path redaction."""
     lvl = getattr(logging, str(level).upper(), level)
     Path(log_file).parent.mkdir(parents=True, exist_ok=True)
     handler = logging.FileHandler(log_file, encoding="utf-8")

@@ -1,9 +1,4 @@
-"""Run importer-based export orchestration.
-
-This module selects the configured importer, creates the output directory
-structure, and writes one normal PDF plus one TECH PDF per imported
-conversation.
-"""
+"""Run importer-based exports and render outputs."""
 
 from __future__ import annotations
 
@@ -38,7 +33,7 @@ IMPORTERS: Dict[str, ConversationImporter] = {
 
 
 class _ExportLogCaptureHandler(logging.Handler):
-    """Collect warning and error log records for the export manifest."""
+    """Collect warning and error log records for export status."""
 
     def __init__(self) -> None:
         """Initialize the capture handler."""
@@ -94,7 +89,7 @@ def _apply_export_status(
 
 
 def _record_existing_traceability_paths(results: Dict[str, Any], out_dir: str) -> None:
-    """Record traceability artifact paths that already exist on disk."""
+    """Record traceability artifact paths that already exist."""
     summary_path = os.path.join(out_dir, EXPORT_SUMMARY_FILENAME)
     manifest_path = os.path.join(out_dir, MANIFEST_FILENAME)
     if os.path.isfile(summary_path):

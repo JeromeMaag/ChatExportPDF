@@ -1,9 +1,4 @@
-"""Resolve Threema external media pointer payloads.
-
-This module indexes `_EXTERNAL_DATA` files by UUID, parses pointer blobs from
-database media payloads, and resolves them to external file content when
-available.
-"""
+"""Resolve Threema external media payloads."""
 
 from __future__ import annotations
 

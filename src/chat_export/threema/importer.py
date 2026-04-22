@@ -1,9 +1,4 @@
-"""Load Threema SQLite data and normalize it for export.
-
-This module reads Threema conversations, messages, reactions, edit history,
-and media references from the source database. It then normalizes the data and
-builds the Threema-specific TECH payload.
-"""
+"""Load Threema exports from SQLite."""
 
 from __future__ import annotations
 
@@ -54,7 +49,7 @@ def _count_skipped_media(media_index: Dict[int, List[Dict[str, Any]]]) -> int:
 
 
 class ThreemaImporter:
-    """Implement the importer contract for Threema SQLite exports."""
+    """Import Threema SQLite exports."""
 
     source_app = "threema"
 

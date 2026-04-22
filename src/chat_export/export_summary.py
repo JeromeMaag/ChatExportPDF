@@ -1,8 +1,4 @@
-"""Write export-level traceability files.
-
-This module creates export-run summary artifacts for auditability and
-traceability.
-"""
+"""Build export summary artifacts."""
 
 from __future__ import annotations
 
@@ -49,7 +45,7 @@ def _update_optional_hasher(hasher: Any | None, chunk: bytes) -> Any | None:
 
 
 def default_log_file(out_dir: str) -> str:
-    """Return the default export log path inside the selected output folder."""
+    """Return the default `log.txt` path."""
     return os.path.join(out_dir, LOG_FILENAME)
 
 
@@ -85,7 +81,7 @@ def _hash_file(path: str) -> tuple[str | None, str]:
 
 
 def _file_metadata(path: str | None) -> dict[str, Any]:
-    """Return filename, size, and hashes without exposing the full path."""
+    """Return filename, size, and hashes for one file."""
     if not path:
         return {
             "filename": None,
@@ -116,7 +112,7 @@ def _file_metadata(path: str | None) -> dict[str, Any]:
 
 
 def _relpath(path: str | None, out_dir: str) -> str | None:
-    """Return a safe relative path for an output artifact."""
+    """Return a path relative to the export directory."""
     if not path:
         return None
     abs_out = os.path.abspath(out_dir)
@@ -131,7 +127,7 @@ def _relpath(path: str | None, out_dir: str) -> str | None:
 
 
 def _input_file_info(cfg: ExportConfig) -> dict[str, Any]:
-    """Build input file metadata without recording local absolute paths."""
+    """Build input file metadata."""
     try:
         path = cfg.resolved_input_path()
     except Exception:
@@ -243,7 +239,7 @@ def _generated_file_entries(
     results: dict[str, Any] | None,
     out_dir: str,
 ) -> list[dict[str, Any]]:
-    """Build generated output file entries with size and hashes."""
+    """Build the generated file inventory."""
     entries: list[dict[str, Any]] = []
     seen_paths: set[str] = set()
     file_fields = (
@@ -279,7 +275,7 @@ def _append_traceability_file_entries(
     summary_path: str,
     manifest_path: str,
 ) -> None:
-    """Add traceability artifact entries to the manifest file inventory."""
+    """Add summary, log, and manifest entries to the file inventory."""
     entries = manifest["files"]
     seen_paths = {entry.get("path") for entry in entries if entry.get("path")}
     _append_generated_file(
@@ -347,7 +343,7 @@ def _overall_counts(results: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _settings(cfg: ExportConfig, results: dict[str, Any] | None) -> dict[str, Any]:
-    """Build export setting values for summary files."""
+    """Build export settings."""
     return {
         "selected_source": cfg.source_app,
         "timezone": cfg.tz_name,
@@ -366,7 +362,7 @@ def _settings(cfg: ExportConfig, results: dict[str, Any] | None) -> dict[str, An
 
 
 def _case_info(cfg: ExportConfig) -> dict[str, str | None]:
-    """Build optional case information for traceability artifacts."""
+    """Build case metadata."""
     return {
         "case_number": cfg.case_number,
         "examiner": cfg.examiner,
@@ -419,7 +415,7 @@ def _line(label: str, value: Any) -> str:
 
 
 def build_summary_text(manifest: dict[str, Any]) -> str:
-    """Build the human-readable export summary text."""
+    """Build `export_summary.txt` content."""
     settings = manifest["settings"]
     counts = manifest["results"]
     output_counts = {

@@ -1,10 +1,4 @@
-"""Provide a simple desktop GUI for portable chat exports.
-
-This module exposes a Tkinter-based launcher for the existing export pipeline.
-It maps GUI fields to ``ExportConfig``, runs exports in a background thread,
-streams logs into the window, and is intended for packaging as a portable
-Windows executable.
-"""
+"""Provide the desktop GUI for chat exports."""
 
 from __future__ import annotations
 
@@ -33,7 +27,7 @@ from .orchestrator import export_all_conversations
 
 
 class QueueLogHandler(logging.Handler):
-    """Push formatted log records into a GUI queue."""
+    """Forward formatted log records to a GUI queue."""
 
     def __init__(self, target_queue: "queue.Queue[str]") -> None:
         """Initialize the handler.
@@ -59,7 +53,7 @@ class QueueLogHandler(logging.Handler):
 
 @dataclass(slots=True)
 class GuiResult:
-    """Store the result of one GUI-triggered export run.
+    """Store the result of one GUI export run.
 
     Attributes:
         ok (bool): ``True`` on success.

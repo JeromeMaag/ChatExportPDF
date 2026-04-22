@@ -1,9 +1,4 @@
-"""Define validated export configuration objects.
-
-This module contains the immutable runtime configuration used by importers,
-renderers, and the orchestrator. It also validates input paths and creates
-the top-level output directory.
-"""
+"""Define export configuration and validation."""
 
 import logging
 from dataclasses import dataclass
@@ -66,7 +61,7 @@ class ExportConfig:
     case_description: Optional[str] = None
 
     def resolved_input_path(self) -> str:
-        """Return the effective source input file path.
+        """Return the configured input file path.
 
         Returns:
             str: Resolved input file path from ``input_path`` or ``db_path``.
@@ -88,7 +83,7 @@ class ExportConfig:
         return path
 
     def validate(self) -> None:
-        """Validate configuration paths and create the output directory.
+        """Validate paths and create the output directory.
 
         Returns:
             None: This method validates in place.

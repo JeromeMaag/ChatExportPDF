@@ -1,9 +1,4 @@
-"""Load WhatsApp ZIP exports and normalize them for export.
-
-This module reads the selected WhatsApp ZIP export, extracts attachments,
-parses the chat text, and converts the result into the shared normalized
-conversation model.
-"""
+"""Load WhatsApp ZIP exports."""
 
 from __future__ import annotations
 
@@ -43,7 +38,7 @@ def _extract_attachments(
     export,
     cfg: ExportConfig,
 ) -> tuple[dict[str, dict[str, object]], str | None]:
-    """Extract WhatsApp ZIP attachments to the media output directory.
+    """Read WhatsApp attachments and optionally export them.
 
     Args:
         export: Loaded WhatsApp ZIP export data.
@@ -112,7 +107,7 @@ def _extract_attachments(
 
 
 class WhatsAppImporter:
-    """Implement the importer contract for WhatsApp ZIP exports."""
+    """Import WhatsApp ZIP exports."""
 
     source_app = "whatsapp"
 

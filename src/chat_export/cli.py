@@ -1,8 +1,4 @@
-"""Define the command-line entry points for chat exports.
-
-This module builds the argument parser, configures logging, maps CLI arguments
-to ``ExportConfig``, and starts the orchestration step.
-"""
+"""Run the command-line export entry point."""
 
 from __future__ import annotations
 import argparse
@@ -16,7 +12,7 @@ from .orchestrator import export_all_conversations
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the top-level CLI argument parser.
+    """Build the CLI argument parser.
 
     Returns:
         argparse.ArgumentParser: Configured parser for all supported export
