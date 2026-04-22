@@ -423,10 +423,7 @@ def _line(label: str, value: Any) -> str:
     return f"{label}: {value if value not in (None, '') else '-'}"
 
 
-def build_summary_text(
-    cfg: ExportConfig,
-    manifest: dict[str, Any],
-) -> str:
+def build_summary_text(manifest: dict[str, Any]) -> str:
     """Build the human-readable export summary text."""
     settings = manifest["settings"]
     counts = manifest["results"]
@@ -600,7 +597,7 @@ def write_traceability_files(
     summary_path = os.path.join(out_dir, EXPORT_SUMMARY_FILENAME)
     manifest_path = os.path.join(out_dir, MANIFEST_FILENAME)
     with open(summary_path, "w", encoding="utf-8") as handle:
-        handle.write(build_summary_text(cfg, manifest))
+        handle.write(build_summary_text(manifest))
     _append_traceability_file_entries(
         manifest,
         out_dir=out_dir,
