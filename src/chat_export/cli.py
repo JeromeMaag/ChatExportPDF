@@ -7,7 +7,7 @@ from typing import Optional
 
 from .common.logging_setup import setup_logging
 from .config_factory import build_export_config
-from .constants import DEFAULT_SOURCE_APP, DEFAULT_TIMEZONE, LOG_LEVELS, SOURCE_APPS
+from .constants import DEFAULT_SOURCE_APP, DEFAULT_TIMEZONE, SOURCE_APPS
 from .orchestrator import export_all_conversations
 
 
@@ -106,12 +106,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional case notes or description for export_summary.txt and manifest.json",
     )
 
-    p.add_argument(
-        "--log-level",
-        default="INFO",
-        choices=LOG_LEVELS,
-        help="Log level (DEBUG/INFO/WARNING/ERROR)",
-    )
     return p
 
 
@@ -144,19 +138,18 @@ def main(argv: Optional[list[str]] = None) -> int:
             max_media_bytes=args.max_media_bytes,
             limit_conversations=args.limit_conversations,
             limit_messages=args.limit_messages,
-            log_level=args.log_level,
             case_number=args.case_number,
             examiner=args.examiner,
             organization=args.organization,
             case_description=args.case_description,
         )
     except Exception as e:
-        setup_logging(args.log_level)
+        setup_logging()
         log = logging.getLogger("chat_export")
         log.exception("Export configuration failed: %s", e)
         return 1
 
-    setup_logging(cfg.log_level, cfg.log_file)
+    setup_logging(cfg.log_file)
     log = logging.getLogger("chat_export")
     log.debug("Parsed CLI args: %s", vars(args))
     log.info("Starting export source=%s tz=%s", args.source, args.tz)

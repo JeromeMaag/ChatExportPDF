@@ -32,7 +32,7 @@ class LocalPathSanitizingFormatter(logging.Formatter):
         return sanitize_local_paths(super().format(record))
 
 
-def build_file_handler(log_file: str, level: str | int = "INFO") -> logging.FileHandler:
+def build_file_handler(log_file: str, level: str | int = "DEBUG") -> logging.FileHandler:
     """Create a file log handler with path redaction."""
     lvl = getattr(logging, str(level).upper(), level)
     Path(log_file).parent.mkdir(parents=True, exist_ok=True)
@@ -43,24 +43,17 @@ def build_file_handler(log_file: str, level: str | int = "INFO") -> logging.File
 
 
 def setup_logging(
-    level: str = "INFO",
     log_file: Optional[str] = None,
     *,
     console: bool = True,
     extra_handlers: Optional[Iterable[logging.Handler]] = None,
     replace_existing: bool = True,
+    console_level: str | int = "INFO",
+    file_level: str | int = "DEBUG",
 ) -> None:
-    """Configure root logging for one process run.
-
-    Args:
-        level (str): Log level name.
-        log_file (Optional[str]): Optional log file path.
-        console (bool): Add a console stream handler.
-        extra_handlers (Optional[Iterable[logging.Handler]]): Extra configured
-            handlers to attach.
-        replace_existing (bool): Remove existing root handlers before setup.
-    """
-    lvl = getattr(logging, level.upper(), logging.INFO)
+    """Configure root logging for one process run."""
+    console_lvl = getattr(logging, str(console_level).upper(), console_level)
+    file_lvl = getattr(logging, str(file_level).upper(), file_level)
     root_logger = logging.getLogger()
 
     if replace_existing:
@@ -73,17 +66,18 @@ def setup_logging(
 
     managed_handlers: list[logging.Handler] = []
     if console:
-        managed_handlers.append(logging.StreamHandler())
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(console_lvl)
+        managed_handlers.append(console_handler)
     if log_file:
-        managed_handlers.append(build_file_handler(log_file, lvl))
+        managed_handlers.append(build_file_handler(log_file, file_lvl))
 
     formatter = logging.Formatter(LOG_FORMAT)
     for handler in managed_handlers:
-        handler.setLevel(lvl)
         if not isinstance(handler, logging.FileHandler):
             handler.setFormatter(formatter)
 
-    root_logger.setLevel(lvl)
+    root_logger.setLevel(logging.DEBUG)
     for handler in managed_handlers:
         root_logger.addHandler(handler)
     if extra_handlers:

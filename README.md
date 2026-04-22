@@ -195,6 +195,3 @@ The preferred CLI entry points are:
 - `--case-description TEXT`
   Optional case notes or description written to `export_summary.txt` and `manifest.json`.
 
-- `--log-level LEVEL`
-  Logging verbosity. Allowed values: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
-  Logs are always written to `log.txt` inside `--out-dir`.

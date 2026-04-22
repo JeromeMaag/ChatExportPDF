@@ -28,7 +28,6 @@ class ExportConfig:
         max_media_bytes (int): Maximum exported media size in bytes. ``0`` disables the limit.
         limit_conversations (int): Maximum number of exported conversations. ``0`` disables the limit.
         limit_messages (int): Maximum number of exported messages per conversation. ``0`` disables the limit.
-        log_level (str): Logging level name.
         log_file (Optional[str]): Export log file path. Defaults to ``log.txt`` in the output directory.
         case_number (Optional[str]): Optional case/reference number for traceability artifacts.
         examiner (Optional[str]): Optional examiner name or initials.
@@ -52,7 +51,6 @@ class ExportConfig:
     limit_conversations: int = 0
     limit_messages: int = 0
 
-    log_level: str = "INFO"
     log_file: Optional[str] = None
 
     case_number: Optional[str] = None

@@ -57,7 +57,6 @@ def build_export_config(
     max_media_bytes: int = 0,
     limit_conversations: int = 0,
     limit_messages: int = 0,
-    log_level: str = "INFO",
     case_number: Optional[str] = None,
     examiner: Optional[str] = None,
     organization: Optional[str] = None,
@@ -79,7 +78,6 @@ def build_export_config(
         max_media_bytes (int): Maximum media size in bytes. ``0`` disables the limit.
         limit_conversations (int): Conversation limit. ``0`` disables the limit.
         limit_messages (int): Message limit per conversation. ``0`` disables the limit.
-        log_level (str): Logging level name.
         case_number (Optional[str]): Optional case/reference number.
         examiner (Optional[str]): Optional examiner name or initials.
         organization (Optional[str]): Optional organization or unit.
@@ -92,7 +90,6 @@ def build_export_config(
     effective_source = source_app.strip()
     effective_chat_text_name = _optional_text(chat_text_name)
     effective_external_folder = _optional_text(external_folder)
-    effective_log_level = log_level.strip() or "INFO"
     effective_tz_name = (tz_name or "").strip() or DEFAULT_TIMEZONE
     effective_db_path = _optional_text(db_path)
 
@@ -124,7 +121,6 @@ def build_export_config(
         max_media_bytes=max_media_bytes,
         limit_conversations=limit_conversations,
         limit_messages=limit_messages,
-        log_level=effective_log_level,
         log_file=effective_log_file,
         case_number=_optional_text(case_number),
         examiner=_optional_text(examiner),

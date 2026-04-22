@@ -19,7 +19,6 @@ from .config_factory import build_export_config, parse_non_negative_int
 from .constants import (
     DEFAULT_SOURCE_APP,
     DEFAULT_TIMEZONE,
-    LOG_LEVELS,
     SOURCE_APPS,
     SOURCE_APP_THREEMA,
 )
@@ -37,6 +36,7 @@ class QueueLogHandler(logging.Handler):
         """
         super().__init__()
         self._target_queue = target_queue
+        self.setLevel(logging.INFO)
         self.setFormatter(logging.Formatter(LOG_FORMAT))
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -111,7 +111,6 @@ class ChatExportGui:
         self.max_media_bytes_var = tk.StringVar(value="0")
         self.limit_conversations_var = tk.StringVar(value="0")
         self.limit_messages_var = tk.StringVar(value="0")
-        self.log_level_var = tk.StringVar(value="INFO")
         self.case_number_var = tk.StringVar()
         self.examiner_var = tk.StringVar()
         self.organization_var = tk.StringVar()
@@ -244,16 +243,8 @@ class ChatExportGui:
             row=4, column=1, columnspan=2, sticky="ew", padx=(0, 8), pady=6
         )
 
-        ttk.Label(self.advanced_frame, text="Log level").grid(row=5, column=0, sticky="w", padx=(8, 8), pady=6)
-        ttk.Combobox(
-            self.advanced_frame,
-            textvariable=self.log_level_var,
-            values=LOG_LEVELS,
-            state="readonly",
-        ).grid(row=5, column=1, columnspan=2, sticky="ew", padx=(0, 8), pady=6)
-
         ttk.Separator(self.advanced_frame).grid(
-            row=6,
+            row=5,
             column=0,
             columnspan=3,
             sticky="ew",
@@ -261,7 +252,7 @@ class ChatExportGui:
             pady=(8, 6),
         )
         ttk.Label(self.advanced_frame, text="Case number").grid(
-            row=7,
+            row=6,
             column=0,
             sticky="w",
             padx=(8, 8),
@@ -272,7 +263,7 @@ class ChatExportGui:
             textvariable=self.case_number_var,
         )
         self.case_number_entry.grid(
-            row=7,
+            row=6,
             column=1,
             columnspan=2,
             sticky="ew",
@@ -281,7 +272,7 @@ class ChatExportGui:
         )
 
         ttk.Label(self.advanced_frame, text="Examiner").grid(
-            row=8,
+            row=7,
             column=0,
             sticky="w",
             padx=(8, 8),
@@ -292,7 +283,7 @@ class ChatExportGui:
             textvariable=self.examiner_var,
         )
         self.examiner_entry.grid(
-            row=8,
+            row=7,
             column=1,
             columnspan=2,
             sticky="ew",
@@ -301,7 +292,7 @@ class ChatExportGui:
         )
 
         ttk.Label(self.advanced_frame, text="Organization / unit").grid(
-            row=9,
+            row=8,
             column=0,
             sticky="w",
             padx=(8, 8),
@@ -312,7 +303,7 @@ class ChatExportGui:
             textvariable=self.organization_var,
         )
         self.organization_entry.grid(
-            row=9,
+            row=8,
             column=1,
             columnspan=2,
             sticky="ew",
@@ -321,7 +312,7 @@ class ChatExportGui:
         )
 
         ttk.Label(self.advanced_frame, text="Description / notes").grid(
-            row=10,
+            row=9,
             column=0,
             sticky="w",
             padx=(8, 8),
@@ -332,7 +323,7 @@ class ChatExportGui:
             textvariable=self.case_description_var,
         )
         self.case_description_entry.grid(
-            row=10,
+            row=9,
             column=1,
             columnspan=2,
             sticky="ew",
@@ -594,7 +585,6 @@ class ChatExportGui:
                 self.limit_messages_var.get(),
                 "Limit messages",
             ),
-            log_level=self.log_level_var.get(),
             case_number=self.case_number_var.get(),
             examiner=self.examiner_var.get(),
             organization=self.organization_var.get(),
@@ -647,7 +637,6 @@ class ChatExportGui:
         try:
             extra_handlers: list[logging.Handler] = [QueueLogHandler(self._log_queue)]
             setup_logging(
-                cfg.log_level,
                 cfg.log_file,
                 console=False,
                 extra_handlers=extra_handlers,
