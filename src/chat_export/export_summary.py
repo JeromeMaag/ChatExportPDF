@@ -219,12 +219,18 @@ def _append_unhashed_file(
     rel_path = _relpath(path, out_dir)
     if not rel_path or rel_path in seen_paths:
         return
+    size_bytes = None
+    if os.path.isfile(path):
+        try:
+            size_bytes = os.path.getsize(path)
+        except OSError:
+            size_bytes = None
     entries.append(
         {
             "type": file_type,
             "path": rel_path,
             "filename": os.path.basename(path),
-            "size_bytes": None,
+            "size_bytes": size_bytes,
             "md5": None,
             "sha256": None,
             "hash_note": hash_note,
