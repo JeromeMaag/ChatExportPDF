@@ -294,7 +294,8 @@ def _append_traceability_file_entries(
             file_type="log",
             path=log_path,
             out_dir=out_dir,
-            hash_note="log may receive entries after manifest generation",
+            hash_note="log may receive entries after manifest generation; size and hash not recorded",
+            include_size=False,
         )
     _append_unhashed_file(
         entries,
