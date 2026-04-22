@@ -60,6 +60,16 @@ class ParsedWhatsAppMessage:
     metadata: dict[str, object] = field(default_factory=dict)
 
 
+@dataclass(slots=True)
+class WhatsAppParseResult:
+    """Store parsed WhatsApp messages plus parser statistics."""
+
+    messages: list[ParsedWhatsAppMessage]
+    line_count: int
+    continuation_line_count: int
+    unparseable_line_count: int
+
+
 def _normalize_title(raw_stem: str) -> str:
     """Normalize a WhatsApp ZIP filename stem to a chat title.
 
@@ -136,20 +146,24 @@ def _extract_attachment(text: str) -> tuple[str, Optional[str], Optional[str]]:
     return text, None, None
 
 
-def parse_chat_messages(chat_text: str, tz_name: str) -> list[ParsedWhatsAppMessage]:
-    """Parse a WhatsApp chat text file into intermediate message records.
+def parse_chat_messages_with_stats(
+    chat_text: str,
+    tz_name: str,
+) -> WhatsAppParseResult:
+    """Parse a WhatsApp chat text file and return parser statistics.
 
     Args:
         chat_text (str): Full chat-export text.
         tz_name (str): IANA timezone name.
 
     Returns:
-        list[ParsedWhatsAppMessage]: Parsed messages in source order.
+        WhatsAppParseResult: Parsed messages and parse counters.
     """
     lines = chat_text.splitlines()
     messages: list[ParsedWhatsAppMessage] = []
     current: ParsedWhatsAppMessage | None = None
     continuation_lines = 0
+    unparseable_lines = 0
 
     for raw_line in lines:
         match = _match_message_start(raw_line)
@@ -160,6 +174,8 @@ def parse_chat_messages(chat_text: str, tz_name: str) -> list[ParsedWhatsAppMess
                     f"{current.text}\n{raw_line}" if current.text else raw_line
                 )
                 current.raw_text = f"{current.raw_text}\n{raw_line}"
+            elif raw_line.strip():
+                unparseable_lines += 1
             continue
 
         body = match.group("body")
@@ -187,13 +203,37 @@ def parse_chat_messages(chat_text: str, tz_name: str) -> list[ParsedWhatsAppMess
         messages.append(current)
 
     log.debug(
-        "Parsed WhatsApp chat text messages=%s lines=%s continuations=%s tz=%s",
+        "Parsed WhatsApp chat text messages=%s lines=%s continuations=%s unparseable=%s tz=%s",
         len(messages),
         len(lines),
         continuation_lines,
+        unparseable_lines,
         tz_name,
     )
-    return messages
+    if unparseable_lines:
+        log.warning(
+            "Unparseable WhatsApp chat lines found count=%s",
+            unparseable_lines,
+        )
+    return WhatsAppParseResult(
+        messages=messages,
+        line_count=len(lines),
+        continuation_line_count=continuation_lines,
+        unparseable_line_count=unparseable_lines,
+    )
+
+
+def parse_chat_messages(chat_text: str, tz_name: str) -> list[ParsedWhatsAppMessage]:
+    """Parse a WhatsApp chat text file into intermediate message records.
+
+    Args:
+        chat_text (str): Full chat-export text.
+        tz_name (str): IANA timezone name.
+
+    Returns:
+        list[ParsedWhatsAppMessage]: Parsed messages in source order.
+    """
+    return parse_chat_messages_with_stats(chat_text, tz_name).messages
 
 
 def _infer_conversation_type(
@@ -363,7 +403,9 @@ def normalize_whatsapp_conversation(
 
         attachments = []
         if message.attachment_name:
-            media = media_lookup.get(message.attachment_name, {})
+            media = media_lookup.get(message.attachment_name)
+            missing_from_zip = media is None
+            media = media or {}
             attachments.append(
                 NormalizedAttachment(
                     attachment_id=f"whatsapp-attachment:{index}",
@@ -376,7 +418,11 @@ def normalize_whatsapp_conversation(
                     sha256=media.get("sha256"),
                     metadata={
                         "zip_member_name": media.get("zip_member_name"),
-                        "missing_from_zip": media.get("missing_from_zip", False),
+                        "missing_from_zip": missing_from_zip,
+                        "skipped_due_to_limit": media.get(
+                            "skipped_due_to_limit", False
+                        ),
+                        "skip_reason": media.get("skip_reason"),
                         "attachment_label": message.metadata.get("attachment_label"),
                     },
                 )

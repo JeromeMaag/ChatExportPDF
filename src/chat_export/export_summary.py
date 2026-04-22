@@ -1,7 +1,7 @@
 """Write export-level traceability files.
 
-This module creates export-run summary artifacts. Some metadata intentionally
-remains as TODO placeholders until the corresponding collection code exists.
+This module creates export-run summary artifacts for auditability and
+traceability.
 """
 
 from __future__ import annotations
@@ -200,6 +200,7 @@ def _append_generated_file(
             "size_bytes": metadata["size_bytes"],
             "md5": metadata["md5"],
             "sha256": metadata["sha256"],
+            "hash_note": None,
         }
     )
     seen_paths.add(rel_path)
@@ -315,14 +316,27 @@ def _overall_counts(results: dict[str, Any] | None) -> dict[str, Any]:
         if participant_ids
         else sum(item.get("participant_count") or 0 for item in exported)
     )
+
+    def _count(key: str) -> int:
+        def _as_int(value: Any) -> int:
+            try:
+                return int(value or 0)
+            except (TypeError, ValueError):
+                return 0
+
+        raw_value = (results or {}).get(key)
+        if raw_value is not None:
+            return _as_int(raw_value)
+        return sum(_as_int(item.get(key)) for item in exported)
+
     return {
         "conversation_count": len(exported),
         "message_count": sum(item.get("message_count") or 0 for item in exported),
         "participant_count": participant_count,
         "attachment_count": sum(item.get("attachment_count") or 0 for item in exported),
-        "missing_media_count": "# TODO: collect missing media count",
-        "skipped_media_count": "# TODO: collect skipped media count",
-        "unparseable_message_count": "# TODO: collect unparseable message/line count",
+        "missing_media_count": _count("missing_media_count"),
+        "skipped_media_count": _count("skipped_media_count"),
+        "unparseable_message_count": _count("unparseable_message_count"),
     }
 
 
@@ -393,7 +407,7 @@ def build_manifest(
         "notes": [
             "This manifest documents processing of the provided input data.",
             "It does not validate origin, authenticity, or completeness of the source.",
-            "All paths are intended to be relative to the selected output directory.",
+            "Generated file paths are intended to be relative to the selected output directory.",
         ],
     }
 
@@ -517,10 +531,10 @@ def build_summary_text(
             if generated_files:
                 lines.extend(f"   - {path}" for path in generated_files)
             else:
-                lines.append("   - # TODO: collect generated files")
+                lines.append("   - none")
             lines.append("")
     else:
-        lines.append("# TODO: collect conversation summaries")
+        lines.append("No conversations exported.")
         lines.append("")
 
     lines.extend(

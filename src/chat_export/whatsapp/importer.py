@@ -18,7 +18,10 @@ from typing import Any, Dict
 from ..common.util import ensure_dir, safe_filename
 from ..config import ExportConfig
 from ..importers.base import ImportRun, ImportedConversation
-from .normalize import normalize_whatsapp_conversation, parse_chat_messages
+from .normalize import (
+    normalize_whatsapp_conversation,
+    parse_chat_messages_with_stats,
+)
 from .zip_reader import load_whatsapp_zip
 
 log = logging.getLogger(__name__)
@@ -67,7 +70,30 @@ def _extract_attachments(
                 "size": attachment.size,
                 "mime_type": mime_type,
                 "missing_from_zip": False,
+                "skipped_due_to_limit": False,
+                "skip_reason": None,
             }
+            if (
+                cfg.export_media
+                and cfg.max_media_bytes
+                and attachment.size > cfg.max_media_bytes
+            ):
+                info["sha256"] = None
+                info["absolute_path"] = None
+                info["skipped_due_to_limit"] = True
+                info["skip_reason"] = (
+                    f"size={attachment.size} exceeds max_media_bytes={cfg.max_media_bytes}"
+                )
+                media_lookup[filename] = info
+                log.warning(
+                    "Skipped WhatsApp attachment due to size limit zip=%s filename=%s size=%s max=%s",
+                    export.zip_path,
+                    filename,
+                    attachment.size,
+                    cfg.max_media_bytes,
+                )
+                continue
+
             data = archive.read(attachment.name)
             info["sha256"] = _sha256_bytes(data)
             if media_dir:
@@ -110,7 +136,8 @@ class WhatsAppImporter:
             input_path,
             chat_text_name=cfg.chat_text_name,
         )
-        parsed_messages = parse_chat_messages(export.chat_text, cfg.tz_name)
+        parse_result = parse_chat_messages_with_stats(export.chat_text, cfg.tz_name)
+        parsed_messages = parse_result.messages
         log.debug(
             "Parsed WhatsApp messages zip=%s count=%s",
             export.zip_path,
@@ -128,11 +155,33 @@ class WhatsAppImporter:
         exported_attachment_count = sum(
             1 for media in media_lookup.values() if media.get("absolute_path")
         )
+        referenced_attachment_names = [
+            message.attachment_name
+            for message in parsed_messages
+            if message.attachment_name
+        ]
+        missing_media_count = sum(
+            1
+            for attachment_name in referenced_attachment_names
+            if attachment_name not in media_lookup
+        )
+        skipped_media_count = sum(
+            1
+            for attachment_name in referenced_attachment_names
+            if media_lookup.get(attachment_name, {}).get("skipped_due_to_limit")
+        )
+        if missing_media_count:
+            log.warning(
+                "WhatsApp messages reference attachments missing from ZIP count=%s",
+                missing_media_count,
+            )
         log.debug(
-            "Prepared WhatsApp media lookup zip=%s entries=%s exported=%s media_dir=%s",
+            "Prepared WhatsApp media lookup zip=%s entries=%s exported=%s missing=%s skipped=%s media_dir=%s",
             export.zip_path,
             len(media_lookup),
             exported_attachment_count,
+            missing_media_count,
+            skipped_media_count,
             media_dir,
         )
         conversation = normalize_whatsapp_conversation(
@@ -149,6 +198,9 @@ class WhatsAppImporter:
             metadata={
                 "media_dir": media_dir,
                 "message_count": len(parsed_messages),
+                "missing_media_count": missing_media_count,
+                "skipped_media_count": skipped_media_count,
+                "unparseable_message_count": parse_result.unparseable_line_count,
             },
         )
 
@@ -171,6 +223,11 @@ class WhatsAppImporter:
                 "input_path": str(export.zip_path),
                 "timezone": cfg.tz_name,
                 "attachments_in_zip": len(export.attachments),
+                "missing_media_count": missing_media_count,
+                "skipped_media_count": skipped_media_count,
+                "unparseable_message_count": parse_result.unparseable_line_count,
+                "whatsapp_line_count": parse_result.line_count,
+                "whatsapp_continuation_line_count": parse_result.continuation_line_count,
             },
         )
         log.info(

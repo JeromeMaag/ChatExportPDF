@@ -161,6 +161,12 @@ def export_media_for_message(
                         "table": table,
                         "source_label": source_label,
                         "exported_path_abs": None,
+                        "exported_size": None,
+                        "exported_sha256": None,
+                        "skipped_due_to_limit": True,
+                        "skip_reason": (
+                            f"size={len(data)} exceeds max_media_bytes={max_media_bytes}"
+                        ),
                         "note": f"skipped size={len(data)}",
                     }
                 )

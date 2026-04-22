@@ -239,6 +239,8 @@ def normalize_attachment(
             "pointer_uuid": item.get("pointer_uuid"),
             "external_path": item.get("external_path"),
             "pointer_dump_path_abs": item.get("pointer_dump_path_abs"),
+            "skipped_due_to_limit": item.get("skipped_due_to_limit", False),
+            "skip_reason": item.get("skip_reason"),
             "note": item.get("note"),
         },
     )
