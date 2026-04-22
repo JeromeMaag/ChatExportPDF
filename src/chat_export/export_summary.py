@@ -210,13 +210,14 @@ def _append_unhashed_file(
     path: str,
     out_dir: str,
     hash_note: str,
+    include_size: bool = True,
 ) -> None:
     """Append one file entry where hashes are intentionally not recorded."""
     rel_path = _relpath(path, out_dir)
     if not rel_path or rel_path in seen_paths:
         return
     size_bytes = None
-    if os.path.isfile(path):
+    if include_size and os.path.isfile(path):
         try:
             size_bytes = os.path.getsize(path)
         except OSError:
@@ -301,7 +302,8 @@ def _append_traceability_file_entries(
         file_type="manifest",
         path=manifest_path,
         out_dir=out_dir,
-        hash_note="self-referential manifest; hash not recorded",
+        hash_note="self-referential manifest; size and hash not recorded",
+        include_size=False,
     )
 
 
