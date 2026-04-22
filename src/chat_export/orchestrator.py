@@ -134,8 +134,12 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
     started_at = utc_now()
     errors: list[str] = []
     warnings: list[str] = []
+    root_logger = logging.getLogger()
+    original_root_level = root_logger.level
+    if original_root_level > logging.WARNING:
+        root_logger.setLevel(logging.WARNING)
     capture_handler = _ExportLogCaptureHandler()
-    logging.getLogger().addHandler(capture_handler)
+    root_logger.addHandler(capture_handler)
     out_dir = os.path.abspath(cfg.out_dir) if cfg.out_dir and cfg.out_dir.strip() else ""
     results: Dict[str, Any] = {
         "source_app": cfg.source_app,
@@ -304,7 +308,8 @@ def export_all_conversations(cfg: ExportConfig) -> Dict[str, Any]:
         raise
     finally:
         finished_at = utc_now()
-        logging.getLogger().removeHandler(capture_handler)
+        root_logger.removeHandler(capture_handler)
+        root_logger.setLevel(original_root_level)
         warnings = _unique_messages(warnings + capture_handler.warnings)
         errors = _unique_messages(errors + capture_handler.errors)
         status = _derive_status(errors, warnings)

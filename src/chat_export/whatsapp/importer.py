@@ -73,11 +73,7 @@ def _extract_attachments(
                 "skipped_due_to_limit": False,
                 "skip_reason": None,
             }
-            if (
-                cfg.export_media
-                and cfg.max_media_bytes
-                and attachment.size > cfg.max_media_bytes
-            ):
+            if cfg.max_media_bytes and attachment.size > cfg.max_media_bytes:
                 info["sha256"] = None
                 info["absolute_path"] = None
                 info["skipped_due_to_limit"] = True
