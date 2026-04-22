@@ -107,8 +107,13 @@ def resolve_pointer_if_needed(
     try:
         with open(p, "rb") as f:
             payload = f.read()
-    except Exception:
-        log.exception("Failed to read external data file for UUID %s: %s", uuid, p)
+    except Exception as exc:
+        log.warning(
+            "Failed to read external data file for UUID %s: %s (%s)",
+            uuid,
+            p,
+            exc,
+        )
         return blob, uuid, None
 
     log.debug(
