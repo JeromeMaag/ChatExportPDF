@@ -118,6 +118,10 @@ class ChatExportGui:
         self.limit_conversations_var = tk.StringVar(value="0")
         self.limit_messages_var = tk.StringVar(value="0")
         self.log_level_var = tk.StringVar(value="INFO")
+        self.case_number_var = tk.StringVar()
+        self.examiner_var = tk.StringVar()
+        self.organization_var = tk.StringVar()
+        self.case_description_var = tk.StringVar()
         self.show_advanced_var = tk.BooleanVar(value=False)
         self.status_var = tk.StringVar(value="Ready")
         self.source_hint_var = tk.StringVar()
@@ -253,6 +257,94 @@ class ChatExportGui:
             values=LOG_LEVELS,
             state="readonly",
         ).grid(row=5, column=1, columnspan=2, sticky="ew", padx=(0, 8), pady=6)
+
+        ttk.Separator(self.advanced_frame).grid(
+            row=6,
+            column=0,
+            columnspan=3,
+            sticky="ew",
+            padx=8,
+            pady=(8, 6),
+        )
+        ttk.Label(self.advanced_frame, text="Case number").grid(
+            row=7,
+            column=0,
+            sticky="w",
+            padx=(8, 8),
+            pady=6,
+        )
+        self.case_number_entry = ttk.Entry(
+            self.advanced_frame,
+            textvariable=self.case_number_var,
+        )
+        self.case_number_entry.grid(
+            row=7,
+            column=1,
+            columnspan=2,
+            sticky="ew",
+            padx=(0, 8),
+            pady=6,
+        )
+
+        ttk.Label(self.advanced_frame, text="Examiner").grid(
+            row=8,
+            column=0,
+            sticky="w",
+            padx=(8, 8),
+            pady=6,
+        )
+        self.examiner_entry = ttk.Entry(
+            self.advanced_frame,
+            textvariable=self.examiner_var,
+        )
+        self.examiner_entry.grid(
+            row=8,
+            column=1,
+            columnspan=2,
+            sticky="ew",
+            padx=(0, 8),
+            pady=6,
+        )
+
+        ttk.Label(self.advanced_frame, text="Organization / unit").grid(
+            row=9,
+            column=0,
+            sticky="w",
+            padx=(8, 8),
+            pady=6,
+        )
+        self.organization_entry = ttk.Entry(
+            self.advanced_frame,
+            textvariable=self.organization_var,
+        )
+        self.organization_entry.grid(
+            row=9,
+            column=1,
+            columnspan=2,
+            sticky="ew",
+            padx=(0, 8),
+            pady=6,
+        )
+
+        ttk.Label(self.advanced_frame, text="Description / notes").grid(
+            row=10,
+            column=0,
+            sticky="w",
+            padx=(8, 8),
+            pady=6,
+        )
+        self.case_description_entry = ttk.Entry(
+            self.advanced_frame,
+            textvariable=self.case_description_var,
+        )
+        self.case_description_entry.grid(
+            row=10,
+            column=1,
+            columnspan=2,
+            sticky="ew",
+            padx=(0, 8),
+            pady=(6, 8),
+        )
 
         self.advanced_frame.grid_remove()
 
@@ -509,6 +601,10 @@ class ChatExportGui:
                 "Limit messages",
             ),
             log_level=self.log_level_var.get(),
+            case_number=self.case_number_var.get(),
+            examiner=self.examiner_var.get(),
+            organization=self.organization_var.get(),
+            case_description=self.case_description_var.get(),
         )
 
     def _set_running(self, running: bool) -> None:
@@ -528,6 +624,10 @@ class ChatExportGui:
             self.external_entry,
             self.external_button,
             self.chat_text_entry,
+            self.case_number_entry,
+            self.examiner_entry,
+            self.organization_entry,
+            self.case_description_entry,
             self.export_media_check,
             self.image_preview_check,
             self.excel_check,

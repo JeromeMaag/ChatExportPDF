@@ -281,6 +281,16 @@ def _settings(cfg: ExportConfig, results: dict[str, Any] | None) -> dict[str, An
     }
 
 
+def _case_info(cfg: ExportConfig) -> dict[str, str | None]:
+    """Build optional case information for traceability artifacts."""
+    return {
+        "case_number": cfg.case_number,
+        "examiner": cfg.examiner,
+        "organization": cfg.organization,
+        "description": cfg.case_description,
+    }
+
+
 def build_manifest(
     cfg: ExportConfig,
     *,
@@ -300,12 +310,7 @@ def build_manifest(
             "version": __version__,
             "repository_url": REPOSITORY_URL,
         },
-        "case": {
-            "case_number": "# TODO: add optional case number",
-            "examiner": "# TODO: add optional examiner",
-            "organization": "# TODO: add optional organization/unit",
-            "description": "# TODO: add optional description/notes",
-        },
+        "case": _case_info(cfg),
         "export": {
             "generated_at": _iso(generated_at),
             "started_at": _iso(started_at),

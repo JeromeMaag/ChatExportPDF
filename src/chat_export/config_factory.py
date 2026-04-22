@@ -14,6 +14,14 @@ from .constants import DEFAULT_TIMEZONE, SOURCE_APP_THREEMA
 from .export_summary import default_log_file
 
 
+def _optional_text(raw_value: Optional[str]) -> Optional[str]:
+    """Return stripped optional text or ``None`` for empty values."""
+    if raw_value is None:
+        return None
+    value = raw_value.strip()
+    return value or None
+
+
 def parse_non_negative_int(raw_value: str, field_name: str) -> int:
     """Parse a non-negative integer field.
 
@@ -55,6 +63,10 @@ def build_export_config(
     limit_conversations: int = 0,
     limit_messages: int = 0,
     log_level: str = "INFO",
+    case_number: Optional[str] = None,
+    examiner: Optional[str] = None,
+    organization: Optional[str] = None,
+    case_description: Optional[str] = None,
 ) -> ExportConfig:
     """Build one ``ExportConfig`` from normalized raw values.
 
@@ -73,17 +85,21 @@ def build_export_config(
         limit_conversations (int): Conversation limit. ``0`` disables the limit.
         limit_messages (int): Message limit per conversation. ``0`` disables the limit.
         log_level (str): Logging level name.
+        case_number (Optional[str]): Optional case/reference number.
+        examiner (Optional[str]): Optional examiner name or initials.
+        organization (Optional[str]): Optional organization or unit.
+        case_description (Optional[str]): Optional case notes or description.
 
     Returns:
         ExportConfig: Runtime export configuration.
     """
-    effective_input_path = input_path.strip() if input_path else None
+    effective_input_path = _optional_text(input_path)
     effective_source = source_app.strip()
-    effective_chat_text_name = chat_text_name.strip() if chat_text_name else None
-    effective_external_folder = external_folder.strip() if external_folder else None
+    effective_chat_text_name = _optional_text(chat_text_name)
+    effective_external_folder = _optional_text(external_folder)
     effective_log_level = log_level.strip() or "INFO"
     effective_tz_name = (tz_name or "").strip() or DEFAULT_TIMEZONE
-    effective_db_path = db_path.strip() if db_path else None
+    effective_db_path = _optional_text(db_path)
 
     if effective_source == SOURCE_APP_THREEMA and not effective_db_path:
         effective_db_path = effective_input_path
@@ -115,4 +131,8 @@ def build_export_config(
         limit_messages=limit_messages,
         log_level=effective_log_level,
         log_file=effective_log_file,
+        case_number=_optional_text(case_number),
+        examiner=_optional_text(examiner),
+        organization=_optional_text(organization),
+        case_description=_optional_text(case_description),
     )

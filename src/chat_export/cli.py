@@ -90,6 +90,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     p.add_argument(
+        "--case-number",
+        default=None,
+        help="Optional case or reference number for export_summary.txt and manifest.json",
+    )
+    p.add_argument(
+        "--examiner",
+        default=None,
+        help="Optional examiner name or initials for export_summary.txt and manifest.json",
+    )
+    p.add_argument(
+        "--organization",
+        default=None,
+        help="Optional organization or unit for export_summary.txt and manifest.json",
+    )
+    p.add_argument(
+        "--case-description",
+        default=None,
+        help="Optional case notes or description for export_summary.txt and manifest.json",
+    )
+
+    p.add_argument(
         "--log-level",
         default="INFO",
         choices=LOG_LEVELS,
@@ -128,6 +149,10 @@ def main(argv: Optional[list[str]] = None) -> int:
             limit_conversations=args.limit_conversations,
             limit_messages=args.limit_messages,
             log_level=args.log_level,
+            case_number=args.case_number,
+            examiner=args.examiner,
+            organization=args.organization,
+            case_description=args.case_description,
         )
     except Exception as e:
         setup_logging(args.log_level)

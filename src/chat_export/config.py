@@ -35,6 +35,10 @@ class ExportConfig:
         limit_messages (int): Maximum number of exported messages per conversation. ``0`` disables the limit.
         log_level (str): Logging level name.
         log_file (Optional[str]): Export log file path. Defaults to ``log.txt`` in the output directory.
+        case_number (Optional[str]): Optional case/reference number for traceability artifacts.
+        examiner (Optional[str]): Optional examiner name or initials.
+        organization (Optional[str]): Optional organization or unit.
+        case_description (Optional[str]): Optional case notes or description.
     """
 
     out_dir: str
@@ -55,6 +59,11 @@ class ExportConfig:
 
     log_level: str = "INFO"
     log_file: Optional[str] = None
+
+    case_number: Optional[str] = None
+    examiner: Optional[str] = None
+    organization: Optional[str] = None
+    case_description: Optional[str] = None
 
     def resolved_input_path(self) -> str:
         """Return the effective source input file path.
