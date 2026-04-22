@@ -410,11 +410,6 @@ def build_manifest(
         "files": _generated_file_entries(results, out_dir),
         "warnings": [sanitize_local_paths(warning) for warning in (warnings or [])],
         "errors": [sanitize_local_paths(error) for error in (errors or [])],
-        "notes": [
-            "This manifest documents processing of the provided input data.",
-            "It does not validate origin, authenticity, or completeness of the source.",
-            "Generated file paths are intended to be relative to the selected output directory.",
-        ],
     }
 
 
