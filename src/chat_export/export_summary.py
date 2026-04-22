@@ -563,12 +563,6 @@ def build_summary_text(
             "---",
             f"Full export log: {LOG_FILENAME}",
             "",
-            "Important Note",
-            "--------------",
-            "This report documents processing of the provided input data.",
-            "It does not validate origin, authenticity, or completeness of the source.",
-            "Generated file paths in this summary are intended to avoid absolute local paths.",
-            "",
         ]
     )
     return "\n".join(lines)
